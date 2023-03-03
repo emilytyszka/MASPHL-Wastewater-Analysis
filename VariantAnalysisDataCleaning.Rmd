@@ -1,0 +1,310 @@
+---
+title: "Wastewater Variants Data Cleaning"
+output: html_document
+date: '2022-12-29'
+---
+
+
+```{r prep, include = FALSE,, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+```
+
+# Data Import and Cleaning
+```{r cleaning run 1, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW2_221229.xlsx") 
+data<-read_excel(data1)
+view(data)
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all1 <- all %>% drop_na(Frequency) #drop NAs
+all1$Date <- as_date(all1$Date)
+
+write_xlsx(as.data.frame(all1),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All1.xlsx'))
+```
+
+```{r cleaning run 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW3_230119.xlsx") 
+data<-read_excel(data1)
+view(all2)
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230119-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all2 <- all %>% drop_na(Frequency) #drop NAs
+all2$Date <- as_date(all2$Date)
+
+write_xlsx(as.data.frame(all2),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All2.xlsx'))
+```
+
+```{r cleaning run 3, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW4_230125.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230125-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all3 <- all %>% drop_na(Frequency) #drop NAs
+all3$Date <- as_date(all3$Date)
+all3raw <- all3
+
+write_xlsx(as.data.frame(all3),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All3.xlsx'))
+```
+
+```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW5_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all4 <- all %>% drop_na(Frequency) #drop NAs
+all4$Date <- as_date(all4$Date)
+all4raw <- all4
+
+write_xlsx(as.data.frame(all4),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All4.xlsx'))
+```
+
+```{r cleaning run 5, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW6_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all5 <- all %>% drop_na(Frequency) #drop NAs
+all5$Date <- as_date(all5$Date)
+all5raw <- all5
+
+write_xlsx(as.data.frame(all5),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All5.xlsx'))
+```
+
+```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW7_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions 
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all6 <- all %>% drop_na(Frequency) #drop NAs
+all6$Date <- as_date(all6$Date)
+all6raw <- all6
+
+write_xlsx(as.data.frame(all6),
+           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All6.xlsx'))
+```
