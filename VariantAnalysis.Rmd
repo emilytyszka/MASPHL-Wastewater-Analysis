@@ -38,7 +38,7 @@ library(tidyverse)
 ```
 
 # Data Import
-```{r cleaning run 1, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+```{r clean data, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Load in new data
 all1<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All1.xlsx") 
