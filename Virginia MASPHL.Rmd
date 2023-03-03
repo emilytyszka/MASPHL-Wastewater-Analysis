@@ -1,0 +1,280 @@
+---
+title: "Virginia vs. MASPHL Wastewater Findings Comparison"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  classoption: landscape
+header-includes:
+- \usepackage{titling}
+- \usepackage{wrapfig}
+- \usepackage{lipsum}
+- \usepackage{pdflscape}
+- \pretitle{\begin{center} \includegraphics[width=2in,height=2in]{1200px-MassDPH_svg.png}\LARGE\\}
+- \posttitle{\end{center}}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(knitr)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+
+```
+
+```{r, include = F}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_chunk$set(error = FALSE)
+
+defOut <- knitr::knit_hooks$get("plot")  # save the default plot hook 
+knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
+  x <- defOut(x, options)  # first apply the default hook
+  if(!is.null(options$wrapfigure)) {  # then, if option wrapfigure is given ...
+    # create the new opening string for the wrapfigure environment ...
+    wf <- sprintf("\\begin{wrapfigure}{%s}{%g\\textwidth}", options$wrapfigure[[1]], options$wrapfigure[[2]])
+    x  <- gsub("\\begin{figure}", wf, x, fixed = T)  # and replace the default one with it.
+    x  <- gsub("{figure}", "{wrapfigure}", x, fixed = T)  # also replace the environment ending
+  }
+  return(x)
+})
+```
+
+# Summary 
+
+On the next page, we find the data summarized. 
+
+- SARS-CoV-2 concentrations are shown in copies/L to match Virginia's measurement units. 
+
+- For both labs, unadjusted (raw) and effective concentrations are shown by date of collection.
+
+- Percent changes are calculated based on the concentration change from the previous measurement.
+
+
+
+\blandscape
+
+```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# All Data
+AllDataDirty <- read_excel(here::here("J:/Wastewater Surveillance/Emily/Virginia MASPHL Comparison","Data.xlsx"))
+
+#Clean Duplicates
+AllDataDirty <- AllDataDirty %>%  select(Provider, `Sample #:`, 'N2 Normalized Conc (copies/mL)')
+AllData <- aggregate(x = AllDataDirty$'N2 Normalized Conc (copies/mL)',             # Mean by group
+          by = list(AllDataDirty$Provider, AllDataDirty$`Sample #:`),
+          FUN = mean)
+
+names(AllData)[1]<-"Provider"
+names(AllData)[2]<-"Sample #:"
+names(AllData)[3]<-"N2 Normalized Conc (copies/mL)"
+
+#Visualize the Wide Table
+AllWideViz <- mutate(AllData, Row = 1:n()) %>%
+  group_by(Provider) %>%
+  mutate(Eff_Percent_Change = (lag(`N2 Normalized Conc (copies/mL)`)-`N2 Normalized Conc (copies/mL)`)/
+           lag(`N2 Normalized Conc (copies/mL)`) * -1) %>% ungroup
+percent <- function(x, digits = 2, format = "f", ...) {      # Create user-defined function
+  paste0(formatC(x * 1, format = format, digits = digits, ...), "%")
+}
+AllWideViz$Eff_Percent_Change <- percent(AllWideViz$Eff_Percent_Change)
+
+#AllWideViz <- pivot_wider(
+ # AllWideViz,
+ # id_cols = Date,
+ # names_from = Provider,
+ # values_from = c(`N2 Normalized Conc (copies/mL)`, Eff_Percent_Change))
+
+AllWideViz <- AllWideViz[order(AllWideViz$`Sample #:`),]
+
+
+
+#names(AllWideViz)[2]<-"MASPHL Effective (copies/mL)"
+#names(AllWideViz)[3]<-"Virginia Effective (copies/mL)"
+#names(AllWideViz)[8]<-"MASPHL Effective Percent Change"
+#names(AllWideViz)[9]<-"Virginia Effective Percent Change"
+
+
+#knitr::kable(AllWideViz, caption = "Concentration and Percent Change by Date for Virginia and MASPHL Samples") %>%
+  #kable_styling("bordered", position = "center") %>%
+  #kable_styling(latex_options="scale_down")
+#write.xlsx(AllWideViz, "J:/Wastewater Surveillance/Emily/Virginia MASPHL Comparison/MASPHL-Virginia-Compare.xlsx", sheetName = "Sheet1", col.names = TRUE, row.names = TRUE)
+
+
+```
+\elandscape
+
+
+# Comparison By Graph
+
+We can start by looking at the data over time. I am going to use sample number as a proxy for time:
+
+```{r graph, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AllData <- AllData %>% 
+    dplyr::group_by(`Provider`) %>% 
+    dplyr::mutate(`N2 Normalized Conc (copies/mL)` = as.double(`N2 Normalized Conc (copies/mL)`),
+                  avgeff_03da = zoo::rollmean(`N2 Normalized Conc (copies/mL)`, k = 3, align="right", fill = NA),
+                  avgeff_05da = zoo::rollmean(`N2 Normalized Conc (copies/mL)`, k = 5, align="right", fill = NA),
+                  avgeff_07da = zoo::rollmean(`N2 Normalized Conc (copies/mL)`, k = 7, align="right", fill= NA)) 
+
+ggplot(AllData, aes(x=`Sample #:`, y=`N2 Normalized Conc (copies/mL)`, group = factor(Provider))) +
+  xlab("Date") + ylab("Concentration (copies/mL)") + labs(title="Adjusted SARS-CoV-2 Concentration") + theme_bw() + geom_line(aes(color=Provider))+  geom_point(aes(color=Provider))+ theme(legend.position='bottom') 
+
+```
+
+We can also subject these numbers to a rolling average. For example, a 3-sample average would be the measurement averaged with the two sample before it:
+
+```{r relative graph, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+ggplot(AllData, aes(x=`Sample #:`, y=`N2 Normalized Conc (copies/mL)`, group = factor(Provider))) +
+  xlab("Sample") + ylab("SARS-CoV-2 Concentration (copies/mL)") + labs(title="Adjusted SARS-CoV-2 Concentration - Rolling 3-Sample Average") + theme_bw() + theme(legend.position='bottom') + geom_line(data = AllData, mapping = aes(x = `Sample #:`, 
+                                     y = avgeff_03da, 
+                                     color = Provider,
+                                     ), show.legend = TRUE)
+ggplot(AllData, aes(x=`Sample #:`, y=`N2 Normalized Conc (copies/mL)`, group = factor(Provider))) +
+  xlab("Sample") + ylab("SARS-CoV-2 Concentration (copies/mL)") + labs(title="Adjusted SARS-CoV-2 Concentration - Rolling 5-Sample Average") + theme_bw() + theme(legend.position='bottom') + geom_line(data = AllData, 
+                       mapping = aes(x = `Sample #:`, 
+                                     y = avgeff_05da, 
+                                     color = Provider,
+                                     ), show.legend = TRUE)
+ggplot(AllData, aes(x=`Sample #:`, y=`N2 Normalized Conc (copies/mL)`, group = factor(Provider))) +
+  xlab("Sample") + ylab("SARS-CoV-2 Concentration (copies/mL)") + labs(title="Adjusted SARS-CoV-2 Concentration - Rolling 7-Sample Average") + theme_bw() + theme(legend.position='bottom') + geom_line(data = AllData, 
+                       mapping = aes(x = `Sample #:`, 
+                                     y = avgeff_07da, 
+                                     color = Provider,
+                                     ), show.legend = TRUE)
+
+
+```
+
+\pagebreak
+
+# Analysis of Variance (ANOVA)
+
+## ANOVA of Unadjusted Concentration
+
+We can start by looking at all data points together - do they both have about the same distribution of count concentrations? If the two labs' measurements are not truly different in any way, we can expect the means of all their measurements to be the equal. 
+
+As is good form, we can start by examining this visually:
+
+```{r anova graph, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AllDataPlot <- ggplot(AllData, aes(x = Provider, y = `N2 Normalized Conc (copies/mL)`, 
+                          fill = Provider)) +
+  geom_violin(alpha = 0.3) +
+  geom_boxplot(width = 0.3, notch = FALSE) + 
+  guides(fill = "none") +
+  coord_flip() +
+  labs(title = "Comparison of Distributions of All Concentrations",
+       x = "", y = "SARS-CoV-2 Concentration (copies/L)")
+AllDataPlot
+```
+
+This is a violin plot - the box part is a box-and-whisker plot, while the curved parts are density plots (like a histogram, the wider parts represent more data). Middle lines are the median concentration, and we can see again that MASPHL tends to estimate higher. There's also a much greater range of values in the State Lab estimates (most likely those 2 January outliers are to blame). Both labs' results exhibit a right-skew.
+
+\pagebreak
+
+Here's the exact same plot on a log scale:
+
+```{r anova graph 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AllDataPlot2 <- ggplot(AllData, aes(x = Provider, y = log(`N2 Normalized Conc (copies/mL)`), 
+                          fill = Provider)) +
+  geom_violin(alpha = 0.3) +
+  geom_boxplot(width = 0.3, notch = FALSE) + 
+  guides(fill = "none") +
+  coord_flip() +
+  labs(title = "Comparison of Distributions of All Concentrations (log scale)",
+       x = "", y = "SARS-CoV-2 Concentration (log(copies/L))")
+AllDataPlot2
+```
+This doesn't provide much new information, but it does get rid of the right skew of the distributions and makes both more normal-looking. **Due to the right skew consistently found in wastewater samples, NWSS recommends that modelling of wastewater sample concentrations be conducted with a log transformation. Models will therefore be run on log(concentration) rather than concentration alone.**
+
+
+```{r anova at last, echo=TRUE , warning=FALSE}
+
+AllData2 <- filter(AllData, `N2 Normalized Conc (copies/mL)`>0)
+anova <- lm(formula = log(`N2 Normalized Conc (copies/mL)`) ~ Provider, data = AllData2)
+anova(anova)
+
+```
+
+If we operate at 95% significance, with a p-value of 0.3229 we fail to find a statistically significant difference between the logs of concentration estimates of the 2 labs through the ANOVA test. In other words: the log of the measurement for these sites over the period examined is not different on average, and so we can consider the two distributions from the violin plots of adjusted concentration to not be different. 
+
+# Pairwise Differences
+
+We can conduct the same test on effective concentration differences. Here are the graphs, first:
+
+
+```{r differences graph 3, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AllWide2 <- pivot_wider(
+  AllData,
+  id_cols = `Sample #:`,
+  names_from = Provider,
+  values_from = `N2 Normalized Conc (copies/mL)`,)
+AllWide2$Difference <- AllWide2$`MA` - AllWide2$`VA` 
+AllWide2$VAPercent <- AllWide2$`Difference` * 100 /
+  AllWide2$`VA`
+
+AllWidePlot3 <- ggplot(AllWide2, aes(x=Difference)) +
+  geom_histogram(fill="orange", bins=50) + geom_vline(aes(xintercept=mean(Difference, na.rm=T)),
+             color="green3", linetype="dashed", size=1, show_guide=T) +
+  labs(title = "Concentration Differences Between the 2 Labs",
+       y = "", x = "Difference Between Measurements (copies/L)")  + theme_bw()
+AllWidePlot3
+
+```
+
+```{r differences graph 3a, echo=TRUE , warning=FALSE}
+
+summary(AllWide2$Difference)
+
+```
+The MASPHL shows a lower mean effective concentration (mean difference = 12.5 copies/mL) than VA.
+
+
+Next, we can test whether these observed differences are statistically significant. As we have a 0 value for one of the measurements, for our t test of log(concentration) we will drop that sample number. We can also run a t-test of concentration without the log (with all data points).
+
+```{r pairwise with outliers eff graph, echo=TRUE , warning=FALSE}
+
+AllData$Provider <- as.factor(AllData$Provider)
+pe <- AllData %>% select(Provider, `Sample #:`, 'N2 Normalized Conc (copies/mL)') %>%
+       arrange(Provider, `Sample #:`)
+pe2 <- filter(pe, `Sample #:` != 'DCLS-05') #the log(0) wil confuse the computer so we have to drop this one
+t.test(log(pe2$`N2 Normalized Conc (copies/mL)`) ~ pe2$Provider, paired=TRUE)
+
+t.test(pe$`N2 Normalized Conc (copies/mL)` ~ pe$Provider, paired=TRUE)
+
+```
+
+Both p-values are >0.05, so a comparison of the effective concentrations fails to find a significant difference between the log of the effective concentrations from the two labs. We should note the small sample size, however.

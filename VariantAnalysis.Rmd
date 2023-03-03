@@ -1,0 +1,773 @@
+---
+title: "Wastewater Variants Visualization"
+output: html_document
+date: '2022-12-29'
+---
+
+
+```{r prep, include = FALSE,, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+```
+
+# Data Import and Cleaning
+```{r cleaning run 1, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW2_221229.xlsx") 
+data<-read_excel(data1)
+view(data)
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all1 <- all %>% drop_na(Frequency) #drop NAs
+all1$Date <- as_date(all1$Date)
+
+```
+
+```{r cleaning run 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW3_230119.xlsx") 
+data<-read_excel(data1)
+view(all2)
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230119-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all2 <- all %>% drop_na(Frequency) #drop NAs
+all2$Date <- as_date(all2$Date)
+view(all1)
+```
+
+```{r cleaning run 3, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW4_230125.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230125-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all3 <- all %>% drop_na(Frequency) #drop NAs
+all3$Date <- as_date(all3$Date)
+all3raw <- all3
+view(all3)
+```
+
+```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW5_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all4 <- all %>% drop_na(Frequency) #drop NAs
+all4$Date <- as_date(all4$Date)
+all4raw <- all4
+```
+
+```{r cleaning run 5, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW6_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all5 <- all %>% drop_na(Frequency) #drop NAs
+all5$Date <- as_date(all5$Date)
+all5raw <- all5
+```
+
+```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+# Load in new data and filter to pos
+data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW7_230130.xlsx") 
+data<-read_excel(data1)
+
+acc<- data.frame(data$...1)
+names(acc)[1] <- "Accession Number"
+acc$rn <- row.names(acc) #create a row name for accession numbers df
+
+#clean lineages data
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- data.frame(Lineages)
+Lineages$rn <- row.names(Lineages) #add row numbers
+Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
+
+#clean lineage frequencies data
+freqs <- str_split_fixed(data$abundances, " ", 50) #all here is the same as above, just using the frequencies that pertain to the lineages
+freqs <- data.frame(freqs)
+freqs$rn <- row.names(freqs)
+freqs <- freqs %>% left_join(acc, by = c("rn" = "rn"))
+freqs_long <- gather(freqs, index, Frequency, X1:X50, factor_key=TRUE) #
+freqs_long$index2 <- paste(freqs_long$`Accession Number`, freqs_long$index, sep=".")
+freqs_long <- freqs_long %>% select(index2, Frequency)
+
+#merge together lineages and their frequencies
+all <- Lineages_long %>% full_join(freqs_long, by = c("index2" = "index2")) #merge by the secondary index
+all <- subset(all, select = - c(index, rn, index2)) #cleaning by dropping merge-associated columns
+all <- all %>% drop_na(Frequency) #drop NAs
+all <- all[!is.na(as.numeric(all$Frequency)), ] 
+all$Frequency <- formattable::percent(as.numeric(all$Frequency))
+
+#merge with dates for each accession
+dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions 
+dates<-read_excel(dates1)
+all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
+all6 <- all %>% drop_na(Frequency) #drop NAs
+all6$Date <- as_date(all6$Date)
+all6raw <- all6
+```
+
+# Dirty Lineage Plot
+```{r dirty Lineage plot, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+ggplot(all3, aes(fill=Lineage, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Raw")
+#ggsave("confusingplot.png")
+
+
+```
+
+#Cleaning by Filtering to First 4 Characters 
+
+```{r cleaner Lineage plot, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all3$LineageClean <- substr(all3$Lineage, 1, 4)
+
+ggplot(all3, aes(fill=LineageClean, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Cleaned Lineage Frequency Plot")
+ggsave(as.character(paste0('cleanedvarsplot', Sys.Date(), '.png')))
+
+ggplot(all3, aes(fill=LineageClean, y= Frequency, x=Date)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+ scale_x_date(date_labels="%b %y",date_breaks  ="1 day")+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot Has Dates Now")
+ggsave(as.character(paste0('dateplot', Sys.Date(), '.png')))
+
+```
+
+#Select Variants 
+```{r select variants 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all3$SelectVariants2 <- ifelse(substr(all3$Lineage, 1,7) == "XBB.1.5" | substr(all3$Lineage, 1,7) == "BA.2.75", substr(all3$Lineage, 1, 7), 
+                             ifelse(substr(all3$Lineage,1,6) == "BQ.1.1", substr(all3$Lineage,1,6),
+                                    ifelse(substr(all3$Lineage,1,4) == "BQ.1" | substr(all3$Lineage,1,4) == "BA.5" | substr(all3$Lineage,1,4) == "BN.1", substr(all3$Lineage,1,4),
+                                           ifelse(substr(all3$Lineage,1,3) == "XBB" | substr(all3$Lineage,1,3) == "BNF", substr(all3$Lineage,1,3), "All Other Variants"))))
+
+ggplot(all3, aes(fill=SelectVariants2, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Sample Accession", subtitle = "Highlighting Select SARS-CoV-2 Lineages") +
+  scale_fill_manual(values=c('grey', '#F8766D', '#E7861B', '#C59900', '#5BB300', '#00B8EF', '#AC88FF', '#FF689F', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('selectvariants2-', Sys.Date(), '.png')))
+
+ggplot(all3, aes(fill=SelectVariants2, y= Frequency, x=Date)) + 
+  geom_bar(stat='identity', position='fill') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+ scale_x_date(date_labels="%b %d %Y",date_breaks  ="1 day")+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Date", subtitle = "Highlighting select SARS-CoV-2 lineages. Duplicate samples are averaged.") + scale_fill_manual(values=c('grey', '#F8766D', '#E7861B', '#C59900', '#5BB300', '#00B8EF', '#AC88FF', '#FF689F', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('selectvariantsdates2-', Sys.Date(), '.png')))
+
+```
+
+# Select Variants - All Data
+```{r everything!, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+
+all$SelectVariants2 <- ifelse(substr(all$Lineage, 1,7) == "XBB.1.5" | substr(all$Lineage, 1,7) == "BA.2.75", substr(all$Lineage, 1, 7), 
+                             ifelse(substr(all$Lineage,1,6) == "BQ.1.1" |  substr(all$Lineage,1,6) == "CH.1.1" , substr(all$Lineage,1,6),
+                                    ifelse(substr(all$Lineage,1,4) == "BQ.1" | substr(all$Lineage,1,4) == "BA.5" | 
+                                             substr(all$Lineage,1,4) == "BN.1", substr(all$Lineage,1,4),
+                                           ifelse(substr(all$Lineage,1,3) == "XBB" | substr(all$Lineage,1,3) == "BNF", substr(all$Lineage,1,3), "All Other Variants"))))
+
+### to keep x labels clean:
+everysecond <- function(x){
+  x <- sort(unique(x))
+  x[seq(2, length(x), 2)] <- ""
+  x
+}
+
+ggplot(all, aes(fill=SelectVariants2, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, size=6)) + theme(legend.key.size = unit(.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Sample Accession", subtitle = "Highlighting Select SARS-CoV-2 Lineages") +
+  scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00',  '#AFA100', '#72B000', '#00B8EF', '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage")) + 
+  scale_x_discrete(labels = everysecond(all$`Accession Number`))
+ggsave(as.character(paste0('alldatavariants', Sys.Date(), '.png')))
+
+ggplot(all, aes(fill=SelectVariants2, y= Frequency, x=Date)) + 
+  geom_bar(stat='identity', position='fill') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+ scale_x_date(date_labels="%b %d %Y",date_breaks  ="1 week")+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Date", subtitle = "Highlighting select SARS-CoV-2 lineages. Duplicate samples are averaged.") + scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00',  '#AFA100', '#72B000', '#00B8EF', '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('alldatavariantsdates', Sys.Date(), '.png')))
+
+```
+
+```{r everything averaged by week, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all$week <- isoweek(all$Date)
+all$year <-year(all$Date)
+
+allbyweek <- all%>% aggregate(Frequency ~ week + year + SelectVariants2, FUN = mean)
+
+allbyweek$date <- as.Date(lubridate::parse_date_time(paste(allbyweek$year, allbyweek$week, 1, sep="/"),'Y/W/w'))
+
+ggplot(allbyweek, aes(fill=SelectVariants2, y= Frequency, x=date)) + 
+  geom_bar(stat='identity', position='fill') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+ scale_x_date(date_labels="%b %d %Y",date_breaks  ="1 week")+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Date", subtitle = "Highlighting select SARS-CoV-2 lineages. Duplicate samples are averaged.") + scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00',  '#AFA100', '#72B000', '#00B8EF', '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('alldatavariantsweeks', Sys.Date(), '.png')))
+
+
+```
+
+
+
+# Select Variants - Meagan
+```{r everything!, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+view(all)
+
+### Collapse silly genetics rules: BF-not-BF.7 and BE are BA.5s
+all$Lineage2 <- ifelse(substr(all$Lineage, 1,2) == "BF" & 
+                                     substr(all$Lineage, 1, 4) != "BF.7", "BA.5",                          #BF-not-BF.7s
+                                     ifelse(substr(all$Lineage, 1,2) == "BE", "BA.5",                      #BEs
+                         all$Lineage))
+
+### Collapse to substrings by grepping, in order to be net and tidy
+all$SelectVariants2 <- ifelse(substr(all$Lineage, 1,7) == "XBB.1.5", substr(all$Lineage, 1, 7), 
+                             ifelse(substr(all$Lineage,1,6) == "BQ.1.1" |  substr(all$Lineage,1,6) == "CH.1.1" , substr(all$Lineage,1,6),
+                                    ifelse(substr(all$Lineage,1,4) == "BQ.1" | substr(all$Lineage,1,4) == "BA.5" | 
+                                             substr(all$Lineage,1,4) == "BN.1" | substr(all$Lineage,1,4) == "BF.7", substr(all$Lineage,1,4),
+                                           ifelse(substr(all$Lineage,1,3) == "XBB", substr(all$Lineage,1,3), "All Other Variants"))))
+
+ggplot(all, aes(fill=SelectVariants2, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, size=6)) + theme(legend.key.size = unit(.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Sample Accession", subtitle = "Highlighting Select SARS-CoV-2 Lineages") +scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00', '#72B000', '#00B8EF', "7997FF", '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage")) + 
+  scale_x_discrete(labels = everysecond(all$`Accession Number`))
+ggsave(as.character(paste0('alldatavariantsmeagan', Sys.Date(), '.png')))
+
+ggplot(all, aes(fill=SelectVariants2, y= Frequency, x=Date)) + 
+  geom_bar(stat='identity', position='fill') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+ scale_x_date(date_labels="%b %d %Y",date_breaks  ="1 week")+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Date", subtitle = "Highlighting select SARS-CoV-2 lineages. Duplicate samples are averaged.") + scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00', '#72B000', '#00B8EF', "7997FF", '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('alldatavariantsdatesmeagan', Sys.Date(), '.png')))
+
+all$week <- isoweek(all$Date)
+all$year <-year(all$Date)
+
+allbyweek <- all%>% aggregate(Frequency ~ week + year + SelectVariants2, FUN = mean)
+
+allbyweek$date <- as.Date(lubridate::parse_date_time(paste(allbyweek$year, allbyweek$week, 1, sep="/"),'Y/W/w'))
+
+ggplot(allbyweek, aes(fill=SelectVariants2, y= Frequency, x=date)) + 
+  geom_bar(stat='identity', position='fill') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(.4, 'cm'))+ scale_x_date(date_labels="%b %d %Y",date_breaks  ="1 week")+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot by Week", subtitle = "Highlighting select SARS-CoV-2 lineages. Duplicate samples are averaged.") + scale_fill_manual(values=c('grey', '#F8766D', '#E08B00', '#BB9D00', '#72B000', '#00B8EF', "7997FF", '#AC88FF', '#F763E0', '#DC71FA')) + guides(fill=guide_legend(title="Lineage"))
+ggsave(as.character(paste0('alldatavariantsweeks', Sys.Date(), '.png')))
+
+```
+
+
+#Luc's Experimental Scheme
+
+```{r luc family tree condensing format, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+### Luc suggested a way to collapse things down: if a lineage has a frequency of under 1% and contains a decimal, lop off the last decimal and stuff after it to categorize with the parent lineage. For example, if BA.1.1.1 is 0.09%, then cut it to BA.1.1. Stop once all lineages have over 1% frequency in order to aid in visualization
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+
+all$Infrequent <- ifelse(all$Frequency < 0.01, 0, 1)
+all$SelectVariants3 <- ifelse(all$Infrequent == "0" & is.na(as.numeric(str_sub(all$Lineage, start= -3)))!=TRUE, str_sub(all$Lineage, end= -3), 
+                              ifelse(all$Infrequent == "0" & is.na(as.numeric(str_sub(all$Lineage, start= -2)))!=TRUE, str_sub(all$Lineage, end= -2), all$Lineage))
+
+all$SelectVariants3 <- ifelse(str_sub(all$SelectVariants3, start= -1)==".", substr(all$SelectVariants3, 1, nchar(all$SelectVariants3)-1), all$SelectVariants3)
+view(all)
+forluc <- all %>% dplyr::select(`Accession Number`, Date, SelectVariants3, Frequency)
+forluc_sum1 <- aggregate(Frequency ~ `Accession Number` + Date + SelectVariants3, forluc, sum)
+
+#Repeating this
+forluc_sum <- forluc_sum1
+forluc_sum$Infrequent <- ifelse(forluc_sum$Frequency < 0.01, 0, 1)
+forluc_sum$SelectVariants3 <- ifelse(forluc_sum$Infrequent == "0" & is.na(as.numeric(str_sub(forluc_sum$SelectVariants3, start= -3)))!=TRUE, str_sub(forluc_sum$SelectVariants3, end= -3), 
+                              ifelse(forluc_sum$Infrequent == "0" & is.na(as.numeric(str_sub(forluc_sum$SelectVariants3, start= -2)))!=TRUE, str_sub(forluc_sum$SelectVariants3, end= -2), forluc_sum$SelectVariants3))
+
+forluc_sum$SelectVariants3 <- ifelse(str_sub(forluc_sum$SelectVariants3, start= -1)==".", substr(forluc_sum$SelectVariants3, 1, nchar(forluc_sum$SelectVariants3)-1), forluc_sum$SelectVariants3)
+forluc <- all %>% dplyr::select(`Accession Number`, Date, SelectVariants3, Frequency)
+forluc_sum <- aggregate(Frequency ~ `Accession Number` + Date + SelectVariants3, forluc, sum)
+
+
+
+view(forluc_sum)
+ggplot(forluc_sum, aes(fill=SelectVariants3, y= Frequency, x=`Accession Number`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Luc's Method")
+
+ggplot(forluc_sum, aes(fill=SelectVariants3, y= Frequency, x=Date)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.4, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Luc's Method")
+
+
+```
+# DIY Variant Selection
+
+## Regression Model
+```{r DIY variant selection, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+all$Date <- as.Date(all$Date, format="%Y-%m-%d")
+all <- all %>% select(Lineage, Date, Frequency)
+all <- all %>% 
+  group_by(Lineage, Date) %>% 
+  summarize(avg=mean(Frequency)) # get rid of duplicate samples of same day - average them
+#all <- allb %>% filter(Date > as.Date("2022-12-25", format="%Y-%m-%d"))
+all$FrequencyPerc <- all$avg*100
+all$LineageClean <- as.factor(all$Lineage)
+all$Date <- as.Date(all$Date, format="%Y-%m-%d")
+
+hist(all$avg)
+#ofinterestmodel <- all %>% 
+#   arrange(desc(mdy(Date))) %>%
+#   group_by(`LineageClean`) %>% 
+#   slice(tail(row_number(), 7))%>% ungroup #chop down all date to get last 7 (or fewer) data points of each raw variant
+
+#model the frequency vs date by lineage
+library(betareg)
+model1 <- betareg(avg ~ Date + LineageClean, data=all)
+summary(model1)
+model1coef <- summary(model1)$coefficients #get out coefficients
+model1coef <- tibble::rownames_to_column(as.data.frame(model1coef), "row_names") # Apply rownames_to_column
+summary(model1coef)
+
+#generate list of significantly changing variants (both pos and neg for now)
+changing <- model1coef %>% filter(`mean.Pr...z..`< 0.05)
+changing$Lineage <- str_remove(changing$row_names, "LineageClean")
+
+
+
+library(broom)
+m1_res <- augment(model1, data = all)
+ggplot(m1_res, aes(x = Date, y = .resid)) +
+        geom_point() +
+        stat_smooth(method = "loess", formula = "y ~ x")  +
+        labs(y = "Residuals", x = "Date",
+             title = "Residuals as a Function of Date")
+
+
+#merge to mark the "all" dataset
+changing$growthflag <- "CHANGING"
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+allmodel<- merge(x = all, y = changing, all.x = TRUE) #merge it with the main data - now the data are flagged "growing" or no
+allmodel$growthvariants <- ifelse(allmodel$growthflag=="CHANGING", allmodel$Lineage, #dump non-growing vars into an NA category
+                             NA)
+ggplot(allmodel, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Using Beta Regression Model")
+```
+
+## Arithmetic - Last 7 Appearances Per Variant
+
+### 4+ Increasing Days
+```{r DIY variant selection arithmetic, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+
+#Some data rearranging
+all$Date <- as.Date(all$Date, format="%Y-%m-%d")
+all <- all %>% select(Lineage, Date, Frequency)
+allb <- all %>% 
+  group_by(Lineage, Date) %>% 
+  summarize(avg=mean(Frequency)) # get rid of duplicate samples of same day - average them
+latest <- allb %>% 
+   arrange(desc(mdy(Date))) %>%
+   group_by(`Lineage`) %>% 
+   slice(tail(row_number(), 7))%>% ungroup #chop down all date to get last 7 (or fewer) data points of each raw variant
+latest <- latest %>% 
+   arrange(Date) %>%
+   group_by(Lineage) %>% 
+   mutate(Index=1:n()) #number each variant+day combo (index = Nth appearance of [name of variant])=
+latest <- latest %>% select(Lineage, Index, avg) #drop the dates - we don't need them
+dailies <- spread(latest, key = Index, value = avg) #widen
+
+#Find differences in frequency between 1st and 2nd appearance, 2nd and 3rd, etc
+dailies$change1to2 <- dailies$`2` - dailies$`1` 
+dailies$change2to3 <- dailies$`3` - dailies$`2` 
+dailies$change3to4 <- dailies$`4` - dailies$`2` 
+dailies$change4to5 <- dailies$`5` - dailies$`4` 
+dailies$change5to6 <- dailies$`6` - dailies$`5` 
+dailies$change6to7 <- dailies$`7` - dailies$`6` 
+
+#Now we flag these: number of NAs, number of increases, number of decreases
+dailies$na_count <- rowSums(is.na(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')])) 
+dailies$poscount <- rowSums(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')] >0)
+dailies$negcount <- rowSums(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')] <0)
+
+#That was shockingly easy. Now we flag variants as increasing
+dailies$growthflag <- ifelse(dailies$poscount >= 4, "GROWING", NA)
+
+#Clean this up - pull out just the name of the variant and the flag
+growthflag <- dailies %>% select(Lineage, growthflag)
+
+#Merge with the all-data dataset once more:
+all<- merge(x = all, y = growthflag, all.x = TRUE)
+all$growthvariants <- ifelse(all$growthflag=="GROWING", all$Lineage, 
+                             "Other")
+
+ggplot(all, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Raw")
+```
+
+### SD Threshold
+```{r DIY variant selection SD, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Uses whichever "dailies" is used last - if you want the first 7 appearances of every variant, go back and run that chunk 
+
+forhist <- gather(dailies, cat, measurement, 9:14, factor_key=TRUE) # I want to check that the changes are distributed normally
+hist(forhist$measurement, breaks = 50) #oh they are! nice
+
+dailies$avgchange <- rowMeans(dailies[,9:14], na.rm=TRUE) #across each row (ie for each variant) get mean of all freq changes 
+SD <- sd(dailies$avgchange, na.rm = TRUE) #SD of these average changes
+SD2 <- sd(unlist(dailies[,9:14]), na.rm=TRUE) #SD of stepwise changes
+meanchange <- mean(dailies$avgchange, na.rm=TRUE) #mean of all changes
+
+SD2
+meanchange
+
+
+dailies$growthflag2 <- ifelse(dailies$avgchange >= (meanchange + 0.4*SD2), "GROWING", NA) #call variant growing if avg change of variant > mean + n*SD
+growthflag2 <- dailies %>% select(Lineage, growthflag2) #pull out this info
+allsd<- merge(x = all, y = growthflag2, all.x = TRUE) #merge it with the main data - now the data are flagged "growing" or no
+
+allsd$growthvariants <- ifelse(allsd$growthflag2=="GROWING", allsd$Lineage, #dump non-growing vars into an NA category
+                             NA)
+
+ggplot(allsd, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Raw")
+```
+
+## Arithmetic - Last 7 Days of Data
+
+### 4+ Increasing Days
+```{r DIY variant selection arithmetic 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+# Repeating the above, just not with last 7 appearances - filter to the past 7 DAYS of data.
+all <- rbind(all2, all3raw, all4raw, all5raw, all6raw)
+
+#Some data rearranging
+all$Date <- as.Date(all$Date, format="%Y-%m-%d")
+all <- all %>% select(Lineage, Date, Frequency)
+allb <- all %>% 
+  group_by(Lineage, Date) %>% 
+  summarize(avg=mean(Frequency)) # get rid of duplicate samples of same day - average them
+latest <- allb %>% filter(Date > as.Date("2022-12-25", format="%Y-%m-%d"))
+latest <- latest %>% 
+   arrange(Date) %>%
+   group_by(Lineage) %>% 
+   mutate(Index=1:n()) #number each variant+day combo (index = Nth appearance of [name of variant])=
+latest <- latest %>% select(Lineage, Index, avg) #drop the dates - we don't need them
+dailies <- spread(latest, key = Index, value = avg) #widen
+
+#Find differences in frequency between 1st and 2nd appearance, 2nd and 3rd, etc
+dailies$change1to2 <- dailies$`2` - dailies$`1` 
+dailies$change2to3 <- dailies$`3` - dailies$`2` 
+dailies$change3to4 <- dailies$`4` - dailies$`2` 
+dailies$change4to5 <- dailies$`5` - dailies$`4` 
+dailies$change5to6 <- dailies$`6` - dailies$`5` 
+dailies$change6to7 <- dailies$`7` - dailies$`6` 
+
+#Now we flag these: number of NAs, number of increases, number of decreases
+dailies$na_count <- rowSums(is.na(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')])) 
+dailies$poscount <- rowSums(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')] >0)
+dailies$negcount <- rowSums(dailies[c('change1to2', 'change2to3', 'change3to4', 'change4to5', 'change5to6','change6to7')] <0)
+
+#That was shockingly easy. Now we flag variants as increasing
+dailies$growthflag <- ifelse(dailies$poscount >= 4, "GROWING", NA)
+
+#Clean this up - pull out just the name of the variant and the flag
+growthflag <- dailies %>% select(Lineage, growthflag)
+
+#Merge with the all-data dataset once more:
+all<- merge(x = all, y = growthflag, all.x = TRUE)
+
+all$growthvariants <- ifelse(all$growthflag=="GROWING", all$Lineage, 
+                             "Other")
+
+ggplot(all, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Raw")
+```
+### SD Threshold
+```{r DIY variant selection SD 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+forhist <- gather(dailies, cat, measurement, 9:14, factor_key=TRUE) # I want to check that the changes are distributed normally
+hist(forhist$measurement, breaks = 50) #oh they are! nice
+
+dailies$avgchange <- rowMeans(dailies[,9:14], na.rm=TRUE) #across each row (ie for each variant) get mean of all freq changes 
+SD <- sd(dailies$avgchange, na.rm = TRUE) #SD of these average changes
+SD2 <- sd(unlist(dailies[,9:14]), na.rm=TRUE) #SD of stepwise changes
+meanchange <- mean(dailies$avgchange, na.rm=TRUE) #mean of all changes
+
+SD2
+meanchange
+
+
+dailies$growthflag2 <- ifelse(dailies$avgchange >= (meanchange + 0.4*SD2), "GROWING", NA) #call variant growing if avg change of variant > mean + n*SD
+growthflag2 <- dailies %>% select(Lineage, growthflag2) #pull out this info
+allsd<- merge(x = all, y = growthflag2, all.x = TRUE) #merge it with the main data - now the data are flagged "growing" or no
+
+allsd$growthvariants <- ifelse(allsd$growthflag2=="GROWING", allsd$Lineage, #dump non-growing vars into an NA category
+                             NA)
+
+ggplot(allsd, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Raw")
+```
+
+#Working with Estimated Variant Concentrations
+
+```{r estimated conc, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+#Get all the more recent data together
+all <- rbind(all2, all3, all4raw, all5raw, all6raw)
+
+#Turn percents into concentrations
+all$`Estimated Concentration` <- all$`Concentration (copies/L)`*as.numeric(all$Frequency)
+
+#Now what if I plot these?
+ggplot(all, aes(x=`Date`, y=`Estimated Concentration`, color=`Lineage`)) +
+  geom_point() + theme(legend.position="none")
+
+#Examine Distrib
+plot(all$Date, log(all$`Concentration (copies/L)`))
+histogram(all$`Estimated Concentration`) #right skew ew
+histogram(sqrt(all$`Estimated Concentration`))
+histogram(log(all$`Estimated Concentration`)) #perfect!
+
+#Model the concentration vs date by lineage
+model1 <- lm(log(`Estimated Concentration`) ~ Date + Lineage, data=all)
+summary(model1)
+model1coef <- summary(model1)$coefficients #get out coefficients
+model1coef <- tibble::rownames_to_column(as.data.frame(model1coef), "row_names") # Apply rownames_to_column
+summary(model1coef)
+
+#generate list of significantly changing variants (both pos and neg for now)
+changing <- model1coef %>% filter(`Pr(>|t|)`< 0.1)
+changing$Lineage <- str_remove(changing$row_names, "Lineage")
+
+m1_res <- augment(model1, data = all)
+ggplot(m1_res, aes(x = Date, y = .resid)) +
+        geom_point() +
+        stat_smooth(method = "loess", formula = "y ~ x")  +
+        labs(y = "Residuals", x = "Date",
+             title = "Residuals as a Function of Date")
+
+
+#merge to mark the "all" dataset
+changing$growthflag <- "CHANGING"
+allmodel<- merge(x = all, y = changing, all.x = TRUE) #merge it with the main data - now the data are flagged "growing" or no
+allmodel$growthvariants <- ifelse(allmodel$growthflag=="CHANGING", allmodel$Lineage, #dump non-growing vars into an NA category
+                             NA)
+XBB <- all %>% filter(Lineage == "XBB.1.5")
+plot(XBB$Date, log(XBB$`Estimated Concentration`))
+
+BQ <- all %>% filter(Lineage == "BQ.1.1")
+plot(BQ$Date, log(BQ$`Estimated Concentration`))
+
+BA2 <- all %>% filter(Lineage == "BA.2.75")
+plot(BA2$Date, log(BA2$`Estimated Concentration`))
+
+ggplot(allmodel, aes(fill=growthvariants, y= Frequency, x=`Date`)) + 
+  geom_bar(position='fill', stat='identity') + theme_bw()+
+  theme(axis.text.x = element_text(angle = 90)) + theme(legend.key.size = unit(0.1, 'cm'))+
+  scale_y_continuous(limits = c(0, 1)) + labs(color = "Variants", title = "Lineage Frequency Plot - Using Linear Regression Model on Concentraiton Data")
+```
