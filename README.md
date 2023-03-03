@@ -11,3 +11,11 @@ As the Microbiology Division's Research Analyst, I was responsible for cleaning,
   - _Biobot_ - Later validation analyses were compared with Biobot, a CDC contracted company that analyzes SARS-CoV-2 in wastewater nationwide, including in MA. 
 - _Variant Frequency Analyses_: Analysis by MASPHL's Sequencing and Bioinformatics core provided estimated SARS-CoV-2 variant frequencies in the wastewater samples. Merging of these data with sample collection and concentration data enabled for a temporal analysis of changing variant frequencies and concentrations over the period sampled. I experimented with methods of identifying and highlighting variants exhibiting frequency and concentration increases of potential interest.
 - _Comparison of Wastewater Data to Statewide Hospitalizations_ - Analyzed publicly-available statewide daily counts of new hospitalizations to 7-day rolling averages of wastewater concentration using Spearman correlations, as well as a cross-correlation analysis using the `ccf()` function.
+- _Miscellaneous Projects_: Coded other, smaller projects such as sompetencies, studies, and external reporting documents.
+
+## Meeting/Group Attendance
+- _BIDLS Wastewater_ (ongoing)
+- _NWSS Community of Practice_ (ongoing)
+- _NWSS Data Analysis Group_ (ongoing)
+- _APHL Wastewater Surveillance_ (ongoing)
+- _SARS-CoV-2 Sequencing for Public Health Emergency Response, Epidemiology and Surveillance (SPHERES)_ (ongoing)
