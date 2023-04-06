@@ -1,0 +1,191 @@
+---
+title: "Wastewater vs. Hospitals"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  classoption: landscape
+  pdf_document: default
+header-includes:
+- \usepackage{titling}
+- \usepackage{wrapfig}
+- \usepackage{lipsum}
+- \usepackage{pdflscape}
+- \pretitle{\begin{center} \includegraphics[width=2in,height=2in]{1200px-MassDPH_svg.png}\LARGE\\}
+- \posttitle{\end{center}}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(gridExtra)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+
+```
+
+```{r, include = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_chunk$set(error = FALSE)
+
+defOut <- knitr::knit_hooks$get("plot")  # save the default plot hook 
+knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
+  x <- defOut(x, options)  # first apply the default hook
+  if(!is.null(options$wrapfigure)) {  # then, if option wrapfigure is given ...
+    # create the new opening string for the wrapfigure environment ...
+    wf <- sprintf("\\begin{wrapfigure}{%s}{%g\\textwidth}", options$wrapfigure[[1]], options$wrapfigure[[2]])
+    x  <- gsub("\\begin{figure}", wf, x, fixed = T)  # and replace the default one with it.
+    x  <- gsub("{figure}", "{wrapfigure}", x, fixed = T)  # also replace the environment ending
+  }
+  return(x)
+})
+```
+
+```{r data import 2022, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+WW2022 <-read_excel(here::here("J:/Wastewater Surveillance/DATA/2022 Wastewater Concentration Data.xlsx"), skip=2)
+
+#This is a mess. Time to clean it up.
+
+#Sites are arranged in a row with the same columns for each site
+DIN2022 <- WW2022[c(1:22)] # Deer Island North is the first 22 columns
+DIS2022 <- WW2022[c(24:45)] # Then a blank column, then Deer Island South 
+Ware2022 <- WW2022[c(47:68)] # Wareham
+SESD2022 <- WW2022[c(70:91)] #SESD
+
+#Because of the repeats, the columns are numbered with "...#" - cut this off
+for ( col in 1:ncol(DIN2022)){
+    colnames(DIN2022)[col] <-  sub("\\.\\.\\.[0-9]+$", "", colnames(DIN2022)[col]) #I can't believe that worked :)
+}
+for ( col in 1:ncol(DIS2022)){
+    colnames(DIS2022)[col] <-  sub("\\.\\.\\.[0-9]+$", "", colnames(DIS2022)[col]) 
+}
+for ( col in 1:ncol(Ware2022)){
+    colnames(Ware2022)[col] <-  sub("\\.\\.\\.[0-9]+$", "", colnames(Ware2022)[col]) 
+}
+for ( col in 1:ncol(SESD2022)){
+    colnames(SESD2022)[col] <-  sub("\\.\\.\\.[0-9]+$", "", colnames(SESD2022)[col]) 
+}
+
+
+# I don't need any data on the replicates, so for now I'll drop them. Clear up the large number of columns also
+DIN2022 <- DIN2022 %>% drop_na(`Sample #`) %>% select(`Collection Date`, `Sample #`, Analyst, `ddPCR date`, `PMMoV-normalized SARS-CoV-2 concentration`, `Avg. % Recovery MHV`)
+DIS2022 <- DIS2022 %>% drop_na(`Sample #`) %>% select(`Collection Date`, `Sample #`, Analyst, `ddPCR date`, `PMMoV-normalized SARS-CoV-2 concentration`, `Avg. % Recovery MHV`)
+Ware2022 <- Ware2022 %>% drop_na(`Sample #`) %>% select(`Collection Date`, `Sample #`, Analyst, `ddPCR date`, `PMMoV-normalized SARS-CoV-2 concentration`, `Avg. % Recovery MHV`)
+SESD2022 <- SESD2022 %>% drop_na(`Sample #`) %>% select(`Collection Date`, `Sample #`, Analyst, `ddPCR date`, `PMMoV-normalized SARS-CoV-2 concentration`, `Avg. % Recovery MHV`)
+
+#Tag each respective table with the name of the site
+DIN2022$Site <- "Deer Island North"
+DIS2022$Site <- "Deer Island South"
+Ware2022$Site <- "Wareham"
+SESD2022$Site <- "SESD"
+
+#Re-merge them. 
+WW2022Clean <- rbind(DIN2022, DIS2022, Ware2022, SESD2022)
+WW2022Clean <- WW2022Clean %>% rename_at('Sample #', ~'Accession #')
+WW2022Clean <- WW2022Clean %>% rename_at('PMMoV-normalized SARS-CoV-2 concentration', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+WW2022Clean$`ddPCR date` <- as.Date(as.numeric(WW2022Clean$`ddPCR date`), origin = "1899-12-30")
+
+#Et voila - pretty 2022 table
+view(WW2022Clean)
+```
+
+```{r data import 2023, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# NOTE: DIFFERENT FORMAT FROM 2022 AND SITES ARE ON SEPARATE PAGES
+
+# Deer Island North
+DIN2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "DITP-N", skip=8)
+DIN2023 <- subset(DIN2023, select = -`BioBot Data`)
+DIN2023 <- DIN2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+DIN2023 <- DIN2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
+DIN2023 <- DIN2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
+DIN2023$`ddPCR date` <- as.Date(as.numeric(DIN2023$`ddPCR date`), origin = "1899-12-30")
+view(DIN2023)
+
+#Deer Island South
+DIS2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "DITP-S", skip=8)
+DIS2023 <- DIS2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+DIS2023 <- DIS2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
+DIS2023 <- DIS2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
+view(DIS2023)
+
+#Wareham
+Ware2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "Wareham", skip=8)
+Ware2023 <- Ware2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+Ware2023 <- Ware2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
+Ware2023 <- Ware2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
+view(Ware2023)
+
+#SESD
+SESD2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "SESD", skip=8)
+SESD2023 <- SESD2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+SESD2023 <- SESD2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
+SESD2023 <- SESD2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
+view(SESD2023)
+
+#Tag each respective table with the name of the site
+DIN2023$Site <- "Deer Island North"
+DIS2023$Site <- "Deer Island South"
+Ware2023$Site <- "Wareham"
+SESD2023$Site <- "SESD"
+
+#Merge them. 
+WW2023Clean <- rbind(DIN2023, DIS2023, Ware2023, SESD2023)
+
+#Et voila - pretty 2023 table
+summary(WW2023Clean)
+summary(WW2022Clean)
+
+# And now we have a big everything table
+All <- rbind(WW2022Clean, WW2023Clean)
+```
+
+
+```{r connect to biobot data, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+BiobotData <-read_csv(here::here("J:/Wastewater Surveillance/DATA/Biobot Data/MA WWTPs/NWSS_MADPH_2023-04-05.csv"))
+
+BiobotData <- BiobotData %>% filter(wwtp_name == "Deer Island WWTP North System" | wwtp_name == "Deer Island WWTP South System" | 
+                                       wwtp_name == "South Essex Sewerage District - Peabody-Salem Pump Station" |
+                                       wwtp_name == "Wareham Water Pollution Control Facility") %>% select(wwtp_name, sample_collect_date, pcr_target_avg_conc)
+BiobotData <- BiobotData %>% rename_at('wwtp_name', ~ 'Site') %>% rename_at('sample_collect_date', ~'Collection Date') %>% rename_at('pcr_target_avg_conc', ~'Biobot Concentration')
+
+### RENAME WWTP NAMES
+
+All<- merge(All, BiobotData, by.x = c('Site', 'Collection Date'), by.y = c('Site', 'Collection Date'), all.X = TRUE) #WGS accessions to clin micro data
+
+view(BiobotData)
+view(All)
+```
