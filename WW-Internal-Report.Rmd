@@ -74,7 +74,7 @@ knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
 
 ```{r data import 2022, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
-WW2022 <-read_excel(here::here("J:/Wastewater Surveillance/DATA/2022 Wastewater Concentration Data.xlsx"), skip=2)
+WW2022 <-read_excel(here::here("[Location]"), skip=2)
 
 #This is a mess. Time to clean it up.
 
@@ -126,7 +126,7 @@ view(WW2022Clean)
 # NOTE: DIFFERENT FORMAT FROM 2022 AND SITES ARE ON SEPARATE PAGES
 
 # Deer Island North
-DIN2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "DITP-N", skip=8)
+DIN2023 <-read_xlsx("[Location]", sheet = "DITP-N", skip=8)
 DIN2023 <- subset(DIN2023, select = -`BioBot Data`)
 DIN2023 <- DIN2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 DIN2023 <- DIN2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
@@ -135,21 +135,21 @@ DIN2023$`ddPCR date` <- as.Date(as.numeric(DIN2023$`ddPCR date`), origin = "1899
 view(DIN2023)
 
 #Deer Island South
-DIS2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "DITP-S", skip=8)
+DIS2023 <-read_xlsx("[Location]", sheet = "DITP-S", skip=8)
 DIS2023 <- DIS2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 DIS2023 <- DIS2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 DIS2023 <- DIS2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
 view(DIS2023)
 
 #Wareham
-Ware2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "Wareham", skip=8)
+Ware2023 <-read_xlsx("[Location]", sheet = "Wareham", skip=8)
 Ware2023 <- Ware2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 Ware2023 <- Ware2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 Ware2023 <- Ware2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
 view(Ware2023)
 
 #SESD
-SESD2023 <-read_xlsx("J:/Wastewater Surveillance/DATA/2023 Wastewater Concentration Data.xlsx", sheet = "SESD", skip=8)
+SESD2023 <-read_xlsx("[Location]", sheet = "SESD", skip=8)
 SESD2023 <- SESD2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 SESD2023 <- SESD2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 SESD2023 <- SESD2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
@@ -175,7 +175,7 @@ All <- rbind(WW2022Clean, WW2023Clean)
 
 ```{r connect to biobot data, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
-BiobotData <-read_csv(here::here("J:/Wastewater Surveillance/DATA/Biobot Data/MA WWTPs/NWSS_MADPH_2023-04-05.csv"))
+BiobotData <-read_csv(here::here("[Location]"))
 
 BiobotData <- BiobotData %>% filter(wwtp_name == "Deer Island WWTP North System" | wwtp_name == "Deer Island WWTP South System" | 
                                        wwtp_name == "South Essex Sewerage District - Peabody-Salem Pump Station" |
