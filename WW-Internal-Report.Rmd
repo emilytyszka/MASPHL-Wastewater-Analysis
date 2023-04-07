@@ -1,11 +1,9 @@
 ---
-title: "Wastewater vs. Hospitals"
+title: "MASPHL COVID-19 Wastewater Internal Report"
 date: "`r Sys.Date()`"
 output:
-  html_document:
-    df_print: paged
-  classoption: landscape
   pdf_document: default
+  classoption: landscape
 header-includes:
 - \usepackage{titling}
 - \usepackage{wrapfig}
@@ -74,7 +72,7 @@ knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
 
 ```{r data import 2022, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
-WW2022 <-read_excel(here::here("[Location]"), skip=2)
+WW2022 <-suppressMessages(read_excel(here::here("[LOCATION]"), skip=2))
 
 #This is a mess. Time to clean it up.
 
@@ -126,7 +124,7 @@ view(WW2022Clean)
 # NOTE: DIFFERENT FORMAT FROM 2022 AND SITES ARE ON SEPARATE PAGES
 
 # Deer Island North
-DIN2023 <-read_xlsx("[Location]", sheet = "DITP-N", skip=8)
+DIN2023 <-read_xlsx("[LOCATION]", sheet = "DITP-N", skip=8)
 DIN2023 <- subset(DIN2023, select = -`BioBot Data`)
 DIN2023 <- DIN2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 DIN2023 <- DIN2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
@@ -135,21 +133,21 @@ DIN2023$`ddPCR date` <- as.Date(as.numeric(DIN2023$`ddPCR date`), origin = "1899
 view(DIN2023)
 
 #Deer Island South
-DIS2023 <-read_xlsx("[Location]", sheet = "DITP-S", skip=8)
+DIS2023 <-read_xlsx("[LOCATION]", sheet = "DITP-S", skip=8)
 DIS2023 <- DIS2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 DIS2023 <- DIS2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 DIS2023 <- DIS2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
 view(DIS2023)
 
 #Wareham
-Ware2023 <-read_xlsx("[Location]", sheet = "Wareham", skip=8)
+Ware2023 <-read_xlsx("[LOCATION]", sheet = "Wareham", skip=8)
 Ware2023 <- Ware2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 Ware2023 <- Ware2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 Ware2023 <- Ware2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
 view(Ware2023)
 
 #SESD
-SESD2023 <-read_xlsx("[Location]", sheet = "SESD", skip=8)
+SESD2023 <-read_xlsx("[LOCATION]", sheet = "SESD", skip=8)
 SESD2023 <- SESD2023 %>% rename_at('PMMoV-Normalized SARS-CoV-2 Concentration\r\n(Copies /L)', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
 SESD2023 <- SESD2023 %>% rename_at('Avg. MHV % Recovery', ~'Avg. % Recovery MHV')
 SESD2023 <- SESD2023 %>% drop_na() %>% select(`Collection Date`, `Accession #`, Analyst, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration`, `Avg. % Recovery MHV`)
@@ -165,27 +163,202 @@ SESD2023$Site <- "SESD"
 WW2023Clean <- rbind(DIN2023, DIS2023, Ware2023, SESD2023)
 
 #Et voila - pretty 2023 table
-summary(WW2023Clean)
-summary(WW2022Clean)
+view(WW2023Clean)
+view(WW2022Clean)
 
 # And now we have a big everything table
 All <- rbind(WW2022Clean, WW2023Clean)
+All$Lab <- "MASPHL"
 ```
 
 
 ```{r connect to biobot data, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
-BiobotData <-read_csv(here::here("[Location]"))
+BiobotData <-read_csv(here::here("[LOCATION]"))
 
 BiobotData <- BiobotData %>% filter(wwtp_name == "Deer Island WWTP North System" | wwtp_name == "Deer Island WWTP South System" | 
                                        wwtp_name == "South Essex Sewerage District - Peabody-Salem Pump Station" |
                                        wwtp_name == "Wareham Water Pollution Control Facility") %>% select(wwtp_name, sample_collect_date, pcr_target_avg_conc)
-BiobotData <- BiobotData %>% rename_at('wwtp_name', ~ 'Site') %>% rename_at('sample_collect_date', ~'Collection Date') %>% rename_at('pcr_target_avg_conc', ~'Biobot Concentration')
+
+# Biobot does doubles!
+BiobotData <- aggregate(BiobotData$pcr_target_avg_conc, by = list(BiobotData$sample_collect_date, BiobotData$wwtp_name), mean)
+
+BiobotData <- BiobotData %>% rename_at('Group.2', ~ 'Site') %>% rename_at('Group.1', ~'Collection Date') %>% rename_at('x', ~'PMMoV-Normalized SARS-CoV-2 Concentration')
+
+
 
 ### RENAME WWTP NAMES
+BiobotData$Site <- as.factor(BiobotData$Site)
+BiobotData$Site <- recode(BiobotData$Site, 
+                          'Deer Island WWTP North System' = 'Deer Island North', 
+                          'Deer Island WWTP South System' = 'Deer Island South',
+                          'Wareham Water Pollution Control Facility' = 'Wareham',
+                          'South Essex Sewerage District - Peabody-Salem Pump Station' = 'SESD')
+BiobotData$Lab <- "Biobot"
+All<- dplyr::bind_rows(All, BiobotData)
 
-All<- merge(All, BiobotData, by.x = c('Site', 'Collection Date'), by.y = c('Site', 'Collection Date'), all.X = TRUE) #WGS accessions to clin micro data
-
-view(BiobotData)
 view(All)
+
 ```
+
+
+# Site Concentration Findings 
+
+## MWRA: Deer Island North
+
+```{r graph DIN, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Deer Island N
+DeerIslandN <- All %>% filter(Site == "Deer Island North")
+DeerIslandN$Date <- as.Date(DeerIslandN$`Collection Date`, format="%Y-%m-%d")
+DeerIslandN <- DeerIslandN %>% filter(Date >= "2022-04-24")
+
+DeerIslandN <- DeerIslandN %>% dplyr::arrange(Date) %>% 
+    dplyr::group_by(Lab) %>% 
+    dplyr::mutate(Rolling5day = zoo::rollmean(`PMMoV-Normalized SARS-CoV-2 Concentration`, k=5, align="right", fill = NA)) %>% ungroup
+DINPlot <- ggplot(DeerIslandN, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Deer Island North - All Time") +
+  scale_x_date(date_breaks = "10 days",
+               date_minor_breaks = "5 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+DINPlot
+
+```
+
+```{r graph DIN2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DeerIslandN2 <- DeerIslandN %>% filter(Date >= (Sys.Date() %m-% months(2)))
+
+DINPlot2 <- ggplot(DeerIslandN2, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Deer Island North - Past 2 Months") +
+  scale_x_date(date_breaks = "5 days",
+               date_minor_breaks = "1 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+DINPlot2
+```
+
+## MWRA: Deer Island South
+
+```{r graph DIS, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Deer Island S
+DeerIslandS <- All %>% filter(Site == "Deer Island South")
+DeerIslandS$Date <- as.Date(DeerIslandS$`Collection Date`, format="%Y-%m-%d")
+DeerIslandS <- DeerIslandS %>% filter(Date >= "2022-04-24")
+
+DeerIslandS <- DeerIslandS %>% dplyr::arrange(Date) %>% 
+    dplyr::group_by(Lab) %>% 
+    dplyr::mutate(Rolling5day = zoo::rollmean(`PMMoV-Normalized SARS-CoV-2 Concentration`, k=5, align="right", fill = NA)) %>% ungroup
+DISPlot <- ggplot(DeerIslandS, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Deer Island South - All Time") +
+  scale_x_date(date_breaks = "10 days",
+               date_minor_breaks = "5 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+DISPlot
+```
+
+```{r graph DIS2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DeerIslandS2 <- DeerIslandS %>% filter(Date >= (Sys.Date() %m-% months(2)))
+
+DISPlot2 <- ggplot(DeerIslandS2, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Deer Island South - - Past 2 Months") +
+  scale_x_date(date_breaks = "5 days",
+               date_minor_breaks = "1 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+DISPlot2
+```
+
+## Wareham Water Pollution Control Facility
+
+```{r graph Wareham, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#Wareham
+Wareham <- All %>% filter(Site == "Wareham")
+Wareham$Date <- as.Date(Wareham$`Collection Date`, format="%Y-%m-%d")
+Wareham <- Wareham %>% filter(Date >= "2022-04-24")
+
+Wareham <- Wareham %>% dplyr::arrange(Date) %>% 
+    dplyr::group_by(Lab) %>% 
+    dplyr::mutate(Rolling5day = zoo::rollmean(`PMMoV-Normalized SARS-CoV-2 Concentration`, k=5, align="right", fill = NA)) %>% ungroup
+WarehamPlot <- ggplot(Wareham, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Wareham - All Time") +
+  scale_x_date(date_breaks = "10 days",
+               date_minor_breaks = "5 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+WarehamPlot
+```
+
+```{r graph Wareham 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Wareham2 <- Wareham %>% filter(Date >= (Sys.Date() %m-% months(2)))
+
+WarehamPlot2 <- ggplot(Wareham2, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="Wareham - Past 2 Months") +
+  scale_x_date(date_breaks = "5 days",
+               date_minor_breaks = "1 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+WarehamPlot2
+```
+
+## South Essex Sewerage District: Peabody-Salem Pump Station
+
+```{r graph SESD, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+#SESD
+SESD <- All %>% filter(Site == "SESD")
+SESD$Date <- as.Date(SESD$`Collection Date`, format="%Y-%m-%d")
+SESD <- SESD %>% filter(Date >= "2022-04-24")
+
+SESD <- SESD %>% dplyr::arrange(Date) %>% 
+    dplyr::group_by(Lab) %>% 
+    dplyr::mutate(Rolling5day = zoo::rollmean(`PMMoV-Normalized SARS-CoV-2 Concentration`, k=5, align="right", fill = NA)) %>% ungroup
+SESDPlot <- ggplot(SESD, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="SESD - All Time") +
+  scale_x_date(date_breaks = "10 days",
+               date_minor_breaks = "5 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+SESDPlot
+```
+
+```{r graph SESD 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+SESD2 <- SESD %>% filter(Date >= (Sys.Date() %m-% months(2)))
+
+SESDPlot2 <- ggplot(SESD2, aes(x=`Collection Date`, group = factor(Lab))) +
+  geom_line(aes(x=Date, y=Rolling5day, color = Lab)) + theme_bw() +
+  labs(title="SESD - Past 2 Months") +
+  scale_x_date(date_breaks = "5 days",
+               date_minor_breaks = "1 days") + theme(axis.text.x = element_text(angle=90, hjust=1))
+
+SESDPlot2
+```
+\pagebreak
+
+\blandscape
+
+# All Sites Heatmap
+
+```{r heatmap, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex', fig.height=7, fig.width = 14}
+
+HeatmapData <- All %>% filter(Lab=="MASPHL") %>% group_by(Site)  %>% 
+  mutate(`Concentration Percent Change` = -100+ (`PMMoV-Normalized SARS-CoV-2 Concentration`/lag(`PMMoV-Normalized SARS-CoV-2 Concentration`) * 100)) %>%
+  ungroup() %>% select(`Site`, `Collection Date`, `Concentration Percent Change`) %>% filter(`Collection Date` >= (Sys.Date() %m-% months(4))) %>% filter(`Concentration Percent Change` <= 1000)
+
+
+ggplot(HeatmapData, aes(x = `Collection Date`, y = `Site`, fill= `Concentration Percent Change`, group = Site)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdYlBu", direction = -1) + theme_bw() + 
+  theme(axis.text.x = element_text(angle=90, hjust=1)) + labs(title="Heatmap: Percent Change From Last Sample Over Time") 
+
+
+```
+
+\elandscape
