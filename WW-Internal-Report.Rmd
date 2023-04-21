@@ -356,8 +356,7 @@ HeatmapData <- All %>% filter(Lab=="MASPHL") %>% group_by(Site)  %>%
 ggplot(HeatmapData, aes(x = `Collection Date`, y = `Site`, fill= `Concentration Percent Change`, group = Site)) + 
   geom_tile() +
   scale_fill_distiller(palette = "RdYlBu", direction = -1) + theme_bw() + 
-  theme(axis.text.x = element_text(angle=90, hjust=1)) + labs(title="Heatmap: Percent Change From Last Sample Over Time") 
-
+  theme(axis.text.x = element_text(angle=90, hjust=1)) + labs(title="Heatmap: Percent Change From Last Sample Over Time", subtitle = "Timeframe: Last 4 Months") 
 
 ```
 
