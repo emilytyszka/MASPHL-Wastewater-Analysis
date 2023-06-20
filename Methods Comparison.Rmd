@@ -1,0 +1,163 @@
+---
+title: "Comparison Between Methods"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  classoption: landscape
+header-includes:
+- \usepackage{titling}
+- \usepackage{wrapfig}
+- \usepackage{lipsum}
+- \usepackage{pdflscape}
+- \pretitle{\begin{center} \includegraphics[width=2in,height=2in]{1200px-MassDPH_svg.png}\LARGE\\}
+- \posttitle{\end{center}}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+
+```
+
+```{r, include = F}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_chunk$set(error = FALSE)
+
+defOut <- knitr::knit_hooks$get("plot")  # save the default plot hook 
+knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
+  x <- defOut(x, options)  # first apply the default hook
+  if(!is.null(options$wrapfigure)) {  # then, if option wrapfigure is given ...
+    # create the new opening string for the wrapfigure environment ...
+    wf <- sprintf("\\begin{wrapfigure}{%s}{%g\\textwidth}", options$wrapfigure[[1]], options$wrapfigure[[2]])
+    x  <- gsub("\\begin{figure}", wf, x, fixed = T)  # and replace the default one with it.
+    x  <- gsub("{figure}", "{wrapfigure}", x, fixed = T)  # also replace the environment ending
+  }
+  return(x)
+})
+```
+\pagebreak
+
+
+```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Pull in Data
+Data<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Methods Comparison","KFKitsPoCData_051823.xlsx")) 
+
+Data <- Data %>% drop_na()
+
+# Table
+Data2 <- subset(Data, select = c(Method, Accession, `ddPCR date`, `PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`))
+
+knitr::kable(head(Data2, 30), caption = "Data Preview") %>%
+  kable_styling("bordered", position = "center") %>%
+  kable_styling(latex_options="scale_down")
+
+```
+
+\pagebreak
+
+# Graph of Concentrations
+
+```{r graphs, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+ggplot(Data, aes(x=`Accession`, y=`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`, group = factor(Method))) + 
+  labs(title="Found SARS-CoV-2 Concentrations for 3 Different Methods") +  xlab("Sample") + ylab("SARS-CoV-2 Concentration (copies/L)")  + 
+  theme_bw() + theme(axis.text.x = element_text(angle = 90)) +
+  geom_line(aes(color=Method))+  geom_point(aes(color=Method))+ theme(legend.position='bottom')
+
+
+```
+
+\pagebreak
+
+# Comparisons
+
+We do 2 sets of comparisons, comparing both new methods to the current.
+
+```{r graphs all vs all, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Reshape
+Data3 <- Data2 %>% select(-`ddPCR date`)
+AllvsAll<- Data3 %>% 
+  pivot_wider(names_from=c('Method'), 
+              values_from='PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)') 
+
+
+ggplot(AllvsAll, aes(x=`Current`, y=`MVP I Kit`)) + 
+  labs(title="Current vs MVP I Kit Concentration Measurements")+
+  ylab("MVP I Kit")  + theme_bw() + 
+  geom_smooth(method = "lm", se=FALSE, color="black") + 
+  geom_point() + stat_regline_equation(label.x = 100, label.y = 240000)+ stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),label.x = 100, label.y = 225000)
+
+# Plot
+ggplot(AllvsAll, aes(x=`Current`, y=`WW Kit`)) + 
+  labs(title="Current vs WW Kit Concentration Measurements") +  
+  xlab("Current Method") + 
+  ylab("WW Kit")  + theme_bw() + 
+  geom_smooth(method = "lm", se=FALSE, color="black") + 
+  geom_point() + stat_regline_equation(label.x = 100, label.y = 300000) +  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), label.x = 100, label.y = 280000)
+
+```
+
+Both kits are found to produce results strongly or very strongly correlated with those of the current method.
+
+\pagebreak
+
+## ANOVA
+
+```{r ANOVA, echo=TRUE, warning=FALSE}
+
+# Model
+BigModel <- lm(Data$`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)` ~ Data$Method)
+summary(BigModel)
+
+
+```
+
+With a p = 0.3224, the model fails to find a significant difference in concentrations between methods.
+
+## Pairwise T Tests
+
+```{r t tests, echo=TRUE, warning=FALSE}
+
+t.test(AllvsAll$`Current`, AllvsAll$`MVP I Kit`, paired = TRUE, alternative = "two.sided")
+t.test(AllvsAll$`Current`, AllvsAll$`WW Kit`, paired = TRUE, alternative = "two.sided")
+
+```
+
+The model fails to find a significant difference between the 2 new methods and the current.
+
+
