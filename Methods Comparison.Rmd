@@ -74,7 +74,7 @@ knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
 ```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Pull in Data
-Data<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Methods Comparison","KFKitsPoCData_051823.xlsx")) 
+Data<-read_excel(here::here("[Location]")) 
 
 Data <- Data %>% drop_na()
 
