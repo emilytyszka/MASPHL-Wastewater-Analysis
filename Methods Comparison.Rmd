@@ -74,7 +74,7 @@ knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
 ```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Pull in Data
-Data<-read_excel(here::here("[Location]")) 
+Data<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Methods Comparison","KFKitsPoCData_051823.xlsx")) 
 
 Data <- Data %>% drop_na()
 
@@ -103,7 +103,7 @@ ggplot(Data, aes(x=`Accession`, y=`PMMoV-Normalized SARS-CoV-2 Concentration (Co
 
 \pagebreak
 
-# Comparisons
+# Comparisons - Found Values
 
 We do 2 sets of comparisons, comparing both new methods to the current.
 
@@ -115,16 +115,21 @@ AllvsAll<- Data3 %>%
   pivot_wider(names_from=c('Method'), 
               values_from='PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)') 
 
+AllvsAllfiltered <- AllvsAll %>% filter(Accession !='23WW361') #this accession is an outlier
+AllvsAllfiltered <- AllvsAllfiltered %>% filter(Accession !='23WW291') #low precision
+AllvsAllfiltered <- AllvsAllfiltered %>% filter(Accession !='23WW348') #low precision
+AllvsAll <- AllvsAllfiltered
 
 ggplot(AllvsAll, aes(x=`Current`, y=`MVP I Kit`)) + 
-  labs(title="Current vs MVP I Kit Concentration Measurements")+
+  labs(title="Current vs MVP I Kit Concentration Measurements - outliers and unsats dropped", subtitle = )+
   ylab("MVP I Kit")  + theme_bw() + 
   geom_smooth(method = "lm", se=FALSE, color="black") + 
   geom_point() + stat_regline_equation(label.x = 100, label.y = 240000)+ stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),label.x = 100, label.y = 225000)
 
+
 # Plot
 ggplot(AllvsAll, aes(x=`Current`, y=`WW Kit`)) + 
-  labs(title="Current vs WW Kit Concentration Measurements") +  
+  labs(title="Current vs WW Kit Concentration Measurements - outliers and unsats dropped") +  
   xlab("Current Method") + 
   ylab("WW Kit")  + theme_bw() + 
   geom_smooth(method = "lm", se=FALSE, color="black") + 
@@ -132,7 +137,7 @@ ggplot(AllvsAll, aes(x=`Current`, y=`WW Kit`)) +
 
 ```
 
-Both kits are found to produce results strongly or very strongly correlated with those of the current method.
+Both kits are found to produce results correlated with those of the current method. With an $R^2$ of 0.74, the both the MVP I and WW Kit concentrations seem to have a great "fit" against the current method. To convert between the methods' found concentrations, an equation is given for the line of best fit on the scatterplot, in which "x" is the x axis of the graph (current method).
 
 \pagebreak
 
@@ -141,13 +146,16 @@ Both kits are found to produce results strongly or very strongly correlated with
 ```{r ANOVA, echo=TRUE, warning=FALSE}
 
 # Model
+Data <- Data %>% filter(Accession !='23WW361')
+Data <- Data %>% filter(Accession !='23WW291') #low precision
+Data <- Data %>% filter(Accession !='23WW348') #low precision
 BigModel <- lm(Data$`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)` ~ Data$Method)
 summary(BigModel)
 
-
+view(Data)
 ```
 
-With a p = 0.3224, the model fails to find a significant difference in concentrations between methods.
+The model fails to find a significant difference in concentrations between methods.
 
 ## Pairwise T Tests
 
@@ -158,6 +166,84 @@ t.test(AllvsAll$`Current`, AllvsAll$`WW Kit`, paired = TRUE, alternative = "two.
 
 ```
 
+The T test finds a significant pair-wise difference between the current and MVP I kit results, but not between the current and the WW kit.
+
+\pagebreak
+
+# Comparisons - LOG TRANSFORM
+
+We repeat, using the log10 values in order to assure normal distribution.
+
+```{r graphs log, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+hist(Data3$`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`, main="Found concentrations exhibit a right skew", 
+     xlab = "Concentration", breaks=20)
+hist(log10(Data3$`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`), main="Log transform on concentrations generates more normal distribution", 
+     xlab = "Log10(concentration)", breaks=20)
+
+```
+The concentrations exhibit a marked right skew. A log10 transform creates a more normal-looking distribution for the data. This will help us to better satisfy the assumptions of our statistical tests.
+
+```{r log graphs, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+ggplot(Data, aes(x=`Accession`, y=log(`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`), group = factor(Method))) + 
+  labs(title="Found SARS-CoV-2 Concentrations for 3 Different Methods - LOG TRANSFORM") +  xlab("Sample") + ylab("log(SARS-CoV-2 Concentration (copies/L))")  + 
+  theme_bw() + theme(axis.text.x = element_text(angle = 90)) +
+  geom_line(aes(color=Method))+  geom_point(aes(color=Method))+ theme(legend.position='bottom')
+
+
+```
+
+```{r log all vs all, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Data4 <- Data3
+Data4$'PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)' <- log(Data4$'PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)')
+AllvsAll<- Data4 %>% 
+  pivot_wider(names_from=c('Method'), 
+              values_from='PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)') 
+
+AllvsAllfiltered <- AllvsAll %>% filter(Accession !='23WW361')
+AllvsAllfiltered <- AllvsAllfiltered %>% filter(Accession !='23WW291') #low precision
+AllvsAllfiltered <- AllvsAllfiltered %>% filter(Accession !='23WW348') #low precision
+AllvsAll <- AllvsAllfiltered
+
+ggplot(AllvsAll, aes(x=`Current`, y=`MVP I Kit`)) + 
+  labs(title="Current vs MVP I Kit Concentration Measurements - outliers and unsats dropped")+
+  ylab("log(MVP I Kit)") + xlab("log(Current)") + theme_bw() + 
+  geom_smooth(method = "lm", se=FALSE, color="black") + 
+  geom_point() + stat_regline_equation(label.x = 10, label.y = 12.5)+ stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),label.x = 10, label.y = 12.4)
+
+# Plot
+ggplot(AllvsAll, aes(x=`Current`, y=`WW Kit`)) + 
+  labs(title="Current vs WW Kit Concentration Measurements - outliers and unsats dropped") +  
+  xlab("log(Current)") +   ylab("log(WW Kit)")  + theme_bw() + 
+  geom_smooth(method = "lm", se=FALSE, color="black") + 
+  geom_point() + stat_regline_equation(label.x = 10, label.y = 12.5)+ stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),label.x = 10, label.y = 12.3)
+
+```
+
+Both kits are found to produce results correlated with those of the current method. With an $R^2$ of 0.72, the WW Kit concentrations seem to have a closer "fit" in the model correlating them to those of the current method. To convert between the methods' found concentrations, an equation is given for the line of best fit on the scatterplot, in which "x" is the x axis of the graph (current method). These equations require a log transform on both x and y, making them more complicated than a strictly linear model.
+
+\pagebreak
+
+## ANOVA
+
+```{r log ANOVA, echo=TRUE, warning=FALSE}
+
+# Model
+BigModel <- lm(log(Data$`PMMoV-Normalized SARS-CoV-2 Concentration (Copies /L)`) ~ Data$Method)
+summary(BigModel)
+
+```
+
+The model fails to find a significant difference in concentrations between methods.
+
+## Pairwise T Tests
+
+```{r log t tests, echo=TRUE, warning=FALSE}
+
+t.test(AllvsAll$`Current`, AllvsAll$`MVP I Kit`, paired = TRUE, alternative = "two.sided")
+t.test(AllvsAll$`Current`, AllvsAll$`WW Kit`, paired = TRUE, alternative = "two.sided")
+
+```
+
 The model fails to find a significant difference between the 2 new methods and the current.
-
-
