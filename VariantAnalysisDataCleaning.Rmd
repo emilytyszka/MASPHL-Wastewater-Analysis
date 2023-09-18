@@ -49,11 +49,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
@@ -94,11 +94,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
@@ -139,11 +139,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
@@ -184,11 +184,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
@@ -229,11 +229,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
@@ -274,11 +274,11 @@ names(acc)[1] <- "Accession Number"
 acc$rn <- row.names(acc) #create a row name for accession numbers df
 
 #clean lineages data
-Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 15 is arbitrary - it just tells R to expect N columns. 
+Lineages <- str_split_fixed(data$lineages, " ", 50) #split into new column every time there's a space (after a new listed lineage name). 50 is arbitrary - it just tells R to expect N columns. 
 Lineages <- data.frame(Lineages)
 Lineages$rn <- row.names(Lineages) #add row numbers
 Lineages <- Lineages %>% left_join(acc, by = c("rn" = "rn")) #join accessions to lineages by row number
-Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 15 ABOVE, YOU MUST CHANGE THIS TOO
+Lineages_long <- gather(Lineages, index, Lineage, X1:X50, factor_key=TRUE)  #convert long to short - X1 X2 etc labelled as "index". IF YOU CHANGE THE 50 ABOVE, YOU MUST CHANGE THIS TOO
 Lineages_long$index2 <- paste(Lineages_long$`Accession Number`, Lineages_long$index, sep=".") #create secondary index (WW22005.X1, WW22005.X2 etc) - this is identical between freq and lineage tables and will be used to merge them
 
 #clean lineage frequencies data
