@@ -41,7 +41,7 @@ library(tidyverse)
 ```{r cleaning run 1, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW2_221229.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW2_221229.xlsx") 
 data<-read_excel(data1)
 view(data)
 acc<- data.frame(data$...1)
@@ -73,20 +73,20 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession.xlsx") #matches dates to accessions
+dates1<-("[LOCATION]/DateAccession.xlsx") #matches dates to accessions
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all1 <- all %>% drop_na(Frequency) #drop NAs
 all1$Date <- as_date(all1$Date)
 
 write_xlsx(as.data.frame(all1),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All1.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All1.xlsx'))
 ```
 
 ```{r cleaning run 2, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW3_230119.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW3_230119.xlsx") 
 data<-read_excel(data1)
 view(all2)
 acc<- data.frame(data$...1)
@@ -118,20 +118,20 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230119-Conc.xlsx") #matches dates to accessions
+dates1<-("[LOCATION]/DateAccession230119-Conc.xlsx") #matches dates to accessions
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all2 <- all %>% drop_na(Frequency) #drop NAs
 all2$Date <- as_date(all2$Date)
 
 write_xlsx(as.data.frame(all2),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All2.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All2.xlsx'))
 ```
 
 ```{r cleaning run 3, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW4_230125.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW4_230125.xlsx") 
 data<-read_excel(data1)
 
 acc<- data.frame(data$...1)
@@ -163,7 +163,7 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230125-Conc.xlsx") #matches dates to accessions
+dates1<-("[LOCATION]/DateAccession230125-Conc.xlsx") #matches dates to accessions
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all3 <- all %>% drop_na(Frequency) #drop NAs
@@ -171,12 +171,12 @@ all3$Date <- as_date(all3$Date)
 all3raw <- all3
 
 write_xlsx(as.data.frame(all3),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All3.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All3.xlsx'))
 ```
 
 ```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW5_230130.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW5_230130.xlsx") 
 data<-read_excel(data1)
 
 acc<- data.frame(data$...1)
@@ -208,7 +208,7 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates1<-("[LOCATION]/DateAccession230130-Conc.xlsx") #matches dates to accessions
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all4 <- all %>% drop_na(Frequency) #drop NAs
@@ -216,12 +216,12 @@ all4$Date <- as_date(all4$Date)
 all4raw <- all4
 
 write_xlsx(as.data.frame(all4),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All4.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All4.xlsx'))
 ```
 
 ```{r cleaning run 5, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW6_230130.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW6_230130.xlsx") 
 data<-read_excel(data1)
 
 acc<- data.frame(data$...1)
@@ -253,7 +253,7 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions
+dates1<-("[LOCATION]/DateAccession230130-Conc.xlsx") #matches dates to accessions
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all5 <- all %>% drop_na(Frequency) #drop NAs
@@ -261,12 +261,12 @@ all5$Date <- as_date(all5$Date)
 all5raw <- all5
 
 write_xlsx(as.data.frame(all5),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All5.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All5.xlsx'))
 ```
 
 ```{r cleaning run 4, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 # Load in new data and filter to pos
-data1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW7_230130.xlsx") 
+data1<-("[LOCATION]/Variant Analysis/Data/Variant Frequencies/demixed_aggregate_WW7_230130.xlsx") 
 data<-read_excel(data1)
 
 acc<- data.frame(data$...1)
@@ -298,7 +298,7 @@ all <- all[!is.na(as.numeric(all$Frequency)), ]
 all$Frequency <- formattable::percent(as.numeric(all$Frequency))
 
 #merge with dates for each accession
-dates1<-("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Date to Accession/DateAccession230130-Conc.xlsx") #matches dates to accessions 
+dates1<-("[LOCATION]/DateAccession230130-Conc.xlsx") #matches dates to accessions 
 dates<-read_excel(dates1)
 all <- all %>% full_join(dates, by = c("Accession Number" = "Accession Number")) #link data with date decoder ring
 all6 <- all %>% drop_na(Frequency) #drop NAs
@@ -306,5 +306,5 @@ all6$Date <- as_date(all6$Date)
 all6raw <- all6
 
 write_xlsx(as.data.frame(all6),
-           path = paste0('J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All6.xlsx'))
+           path = paste0('[LOCATION]/Variant Analysis/Data/Cleaned/All6.xlsx'))
 ```
