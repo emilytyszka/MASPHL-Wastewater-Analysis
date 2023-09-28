@@ -76,16 +76,16 @@ knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
 ```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Pull in Data
-HospitalsAllState<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='Hospitalization from Hospitals') 
+HospitalsAllState<-read_excel(here::here("[LOCATION]","covid-19-raw-data-12-29-2022.xlsx"), sheet='Hospitalization from Hospitals') 
 view(HospitalsAllState)
 
-HospitalsRegional<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='HospBedAvailable-Regional') 
+HospitalsRegional<-read_excel(here::here("[LOCATION]","covid-19-raw-data-12-29-2022.xlsx"), sheet='HospBedAvailable-Regional') 
 view(HospitalsRegional)
 
-HospitalsDemo<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='New Hospital Demographic Data') 
+HospitalsDemo<-read_excel(here::here("[LOCATION]","covid-19-raw-data-12-29-2022.xlsx"), sheet='New Hospital Demographic Data') 
 view(HospitalsDemo)
 
-WW<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Wastewater and Hospitals Analysis","MWRA.xlsx")) 
+WW<-read_excel(here::here("[LOCATION]","MWRA.xlsx")) 
 view(WW)
 
 ```
