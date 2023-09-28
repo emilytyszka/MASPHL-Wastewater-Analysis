@@ -1,0 +1,1212 @@
+---
+title: "Wastewater vs. Hospitals"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  classoption: landscape
+  pdf_document: default
+header-includes:
+- \usepackage{titling}
+- \usepackage{wrapfig}
+- \usepackage{lipsum}
+- \usepackage{pdflscape}
+- \pretitle{\begin{center} \includegraphics[width=2in,height=2in]{1200px-MassDPH_svg.png}\LARGE\\}
+- \posttitle{\end{center}}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load in Libraries
+library(readxl)
+library(plyr)
+library(dplyr)
+library(arsenal)
+library(ggplot2)
+library(gridExtra)
+library(writexl)
+library(openxlsx)
+library(lubridate) 
+library(data.table)
+library(kableExtra)
+library(tidyr)
+library(janitor)
+library(scales)
+library(kableExtra)
+library(tinytex)
+library(yaml)
+library(ggpubr)
+library(cowplot)
+library(zoo)
+library(formattable)
+library(treemap)
+library(viridis)
+library(paletteer)
+library(rlist)
+library(magrittr)
+library(mosaic)
+library(tidyverse)
+
+```
+
+```{r, include = F}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_chunk$set(error = FALSE)
+
+defOut <- knitr::knit_hooks$get("plot")  # save the default plot hook 
+knitr::knit_hooks$set(plot = function(x, options) {  # set new plot hook ...
+  x <- defOut(x, options)  # first apply the default hook
+  if(!is.null(options$wrapfigure)) {  # then, if option wrapfigure is given ...
+    # create the new opening string for the wrapfigure environment ...
+    wf <- sprintf("\\begin{wrapfigure}{%s}{%g\\textwidth}", options$wrapfigure[[1]], options$wrapfigure[[2]])
+    x  <- gsub("\\begin{figure}", wf, x, fixed = T)  # and replace the default one with it.
+    x  <- gsub("{figure}", "{wrapfigure}", x, fixed = T)  # also replace the environment ending
+  }
+  return(x)
+})
+```
+
+
+```{r setup and summary, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+# Pull in Data
+HospitalsAllState<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='Hospitalization from Hospitals') 
+view(HospitalsAllState)
+
+HospitalsRegional<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='HospBedAvailable-Regional') 
+view(HospitalsRegional)
+
+HospitalsDemo<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Comparisons/Wastewater and Hospitals Analysis","covid-19-raw-data-12-29-2022.xlsx"), sheet='New Hospital Demographic Data') 
+view(HospitalsDemo)
+
+WW<-read_excel(here::here("J:/Wastewater Surveillance/Emily/Wastewater and Hospitals Analysis","MWRA.xlsx")) 
+view(WW)
+
+```
+
+
+# Comparing Statewide Hospitalizations to Wastewater Data
+
+Next, overlaying these 7-day averages with 7-day averages for found SARS-CoV-2 concentrations: 
+
+```{r compare plots, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+
+#Deer Island N
+## WW Levels
+DeerIslandNa <- select(WW, `Sample Date`, `Northern (copies/mL)`)
+DeerIslandNa$Date <- as.Date(DeerIslandNa$'Sample Date', format="%Y-%m-%d")
+DeerIslandNa <- DeerIslandNa %>%
+    dplyr::mutate(`Northern (copies/mL)` = as.double(`Northern (copies/mL)`),
+                  avg_07da = zoo::rollmean(`Northern (copies/mL)`, k = 7, align="center", fill = NA))
+
+##Statewide
+DeerIslandNb <- select(HospitalsAllState, `Date`, `New COVID-19 hospitalizations`)
+DeerIslandNb$Date <- as.Date(DeerIslandNb$Date, format="%Y-%m-%d")
+DeerIslandNb <- DeerIslandNb %>%
+    dplyr::mutate(`New COVID-19 hospitalizations` = as.double(`New COVID-19 hospitalizations`),
+                  bed_07da = zoo::rollmean(`New COVID-19 hospitalizations`, k = 7, align="center", fill = NA))
+DeerIslandN <- merge(x = DeerIslandNa, y = DeerIslandNb, by = "Date", all = TRUE)
+
+DeerIslandN <- merge(x = DeerIslandNa, y = DeerIslandNb, by = "Date", all = TRUE)
+DeerIslandN <- DeerIslandN %>% na.omit
+DINPlot <- ggplot(DeerIslandN, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "Wastewater")) + 
+  geom_line(aes(y=10*bed_07da,  color="Hospitalizations")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DINPlotRaw <- ggplot(DeerIslandN, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "Wastewater")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="Hospitalizations")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DINPlotRaw
+DINPlot
+
+```
+Blue = Wastewater
+Pink = Hospitalizations
+
+## Adding Waves
+
+Breaking up by "wave" - think "delta wave" or the first "omicron wave." I'm basing these off of the emergence of new, highly virulent variants that define new eras and/or peaks in incidence of the virus. This is by no means exact, but it interests me to be able to examine the possibility of wave-by-wave changes in viral concentration's ability to predict. I'm basing my date ranges off of two websites, listed here as archived Wayback Machine links to preserve them as I saw them while writing this:
+
+- [Yale Medicine's Variants of Concern page](https://web.archive.org/web/20230106042553/https://www.yalemedicine.org/news/covid-19-variants-of-concern-omicron)
+
+- [The CDC Museum's Timeline (Updates stop after July 8, 2022)](https://web.archive.org/web/20230109005923/https://www.cdc.gov/museum/timeline/covid19.html)
+
+
+
+```{r compare plots waves, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+y_min = 0
+y_max = 9000
+
+WTStart <- as.Date("2020-05-01", format="%Y-%m-%d")
+WTEnd <- as.Date("2021-03-01", format="%Y-%m-%d")
+
+AlphaStart <- as.Date("2021-03-10", format="%Y-%m-%d")
+AlphaEnd <- as.Date("2021-07-01", format="%Y-%m-%d")
+
+DeltaStart <- as.Date("2021-07-08", format="%Y-%m-%d")
+DeltaEnd <- as.Date("2021-12-19", format="%Y-%m-%d")
+
+Omicron1Start <- as.Date("2021-12-26", format="%Y-%m-%d")
+Omicron1End <- as.Date("2022-03-22", format="%Y-%m-%d")
+
+Omicron2Start <- as.Date("2022-03-29", format="%Y-%m-%d")
+Omicron2End <- as.Date("2022-07-01", format="%Y-%m-%d")
+
+Omicron3Start <- as.Date("2022-07-06", format="%Y-%m-%d")
+Omicron3End <- as.Date("2022-10-25", format="%Y-%m-%d")
+
+BQsStart <- as.Date("2022-11-01", format="%Y-%m-%d")
+BQsEnd <- as.Date("2023-01-01", format="%Y-%m-%d")
+
+## WT
+shaded_areaWT <- geom_rect(
+  aes(xmin = WTStart,xmax = WTEnd, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+WT_label <- annotate(geom = 'label', x = (WTStart + floor((WTEnd-WTStart)/2)), y = y_max-800, 
+                 label = 'Wild Type',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+## Alpha
+shaded_areaAlpha <- geom_rect(
+  aes(xmin = AlphaStart, xmax = AlphaEnd, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+Alpha_label <- annotate(geom = 'label', x = (AlphaStart + floor((AlphaEnd-AlphaStart)/2)), y = y_max, 
+                 label = 'Alpha',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+
+## Delta
+shaded_areaDelta <- geom_rect(
+  aes(xmin = DeltaStart, xmax = DeltaEnd, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+Delta_label <- annotate(geom = 'label', x = (DeltaStart + floor((DeltaEnd-DeltaStart)/2)), y = y_max-800, 
+                 label = 'Delta',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+## Omicron BA.1
+shaded_areaOmicron1 <- geom_rect(
+  aes(xmin = Omicron1Start, xmax = Omicron1End, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+Omicron_label1 <- annotate(geom = 'label', x = (Omicron1Start + floor((Omicron1End-Omicron1Start)/2)), y = y_max, 
+                 label = 'BA.1',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+## Omicron BA.2
+shaded_areaOmicron2 <- geom_rect(
+  aes(xmin = Omicron2Start, xmax = Omicron2End, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+Omicron_label2 <- annotate(geom = 'label', x = (Omicron2Start + floor((Omicron2End-Omicron2Start)/2)), y = y_max-800, 
+                 label = 'BA.2',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+## Omicron BA.4 and BA.5
+shaded_areaOmicron3 <- geom_rect(
+  aes(xmin = Omicron3Start, xmax = Omicron3End, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+Omicron_label3 <- annotate(geom = 'label', x = (Omicron3Start + floor((Omicron3End-Omicron3Start)/2)), y = y_max, 
+                 label = 'BA.4 and BA.5',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+## BQs
+shaded_areaBQ <- geom_rect(
+  aes(xmin = BQsStart, xmax = BQsEnd, ymin = y_min, ymax = y_max),
+  fill = 'yellow',
+  alpha = 0.01,
+  color = NA)## text label
+BQ_label <- annotate(geom = 'label', x = (BQsStart + floor((BQsEnd-BQsStart)/2)), y = y_max-800, 
+                 label = 'BQ.1 and BQ.1.1',
+                 size = 2, angle = 45,
+                 fill = 'white', alpha = 0.8)## add this to the basic plot above
+
+
+DINPlot2 <- ggplot(DeerIslandN, aes(x=Date)) + shaded_areaWT + 
+  WT_label + shaded_areaAlpha + Alpha_label + shaded_areaDelta + Delta_label + shaded_areaOmicron1 + Omicron_label1 + 
+  shaded_areaOmicron2 + Omicron_label2 + shaded_areaOmicron3 + Omicron_label3 + shaded_areaBQ + BQ_label +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", 
+       subtitle = 'Rolling 7-day averages with variant "waves" highlighted') +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+
+DINPlot2
+
+```
+\pagebreak
+
+# All-Data Analysis
+
+## Raw Data 
+```{r plot raw, echo=TRUE , warning=FALSE}
+DINPlotRaw
+
+```
+
+### Spearman's $\rho$
+
+```{r corr deer island n raw, echo=TRUE , warning=FALSE}
+
+cor.test(DeerIslandN$`New COVID-19 hospitalizations`, DeerIslandN$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.8070 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr deer island n ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(DeerIslandN$`New COVID-19 hospitalizations`, DeerIslandN$`Northern (copies/mL)`)
+
+
+
+#DINCCFPlot <- plot(DINCCF, main = "Statwide Bed Usage vs. Deer Island North Concentration CCF", xlab="Lag (days)", ylab = "Cross-Correlation Function")
+
+
+```
+
+The above plot and numbers are both the result of R testing different lags for the data, testing a cross-correlation (ACF; the interpretation is similar to a Spearman's $\rho$) for each lag value. Larger values (or smaller negatives) indicate that, at that lag, the two sets of data are more have a greater correlation coefficient. The blue lines indicate significant correlation - lines crossing that are significant. 
+
+We find that a lag of around 10 gives the tightest fits, in terms of ACF, both positive. In other words, to get us closest to a perfect positive correlation (cases increase with concentration), the wastewater line should be moved forward 10 days to sit on top of the bed usage line. The blue lines show thresholds for statistical significance - this is a significant association.
+
+\elandscape
+
+```{r corr deer island n ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 10 days, we find a cross-correlation of 0.751.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 10 days:
+
+```{r graphing din lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+DINPlotRawLag <- ggplot(DeerIslandN, aes(x=Date)) +
+  geom_line(aes(x=Date+10, y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DINPlotRawLag
+
+```
+
+
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr deer island n, echo=TRUE , warning=FALSE}
+
+cor.test(DeerIslandN$bed_07da, DeerIslandN$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of .841 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr deer island n ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(DeerIslandN$bed_07da, DeerIslandN$avg_07da)
+
+#DINCCFPlot <- plot(DINCCF, main = "Statwide Bed Usage vs. Deer Island North Concentration CCF", xlab="Lag (days)", ylab = "Cross-Correlation Function")
+
+
+```
+
+
+We find that a lag of around 11 gives the tightest fits, in terms of ACF. In other words, to get us closest to a perfect positive correlation (cases increase with concentration), the wastewater line should be moved forward 11 days to sit on top of the bed usage line. The blue lines show thresholds for statistical significance - this is a significant association.
+
+\elandscape
+
+```{r corr deer island n ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 11 days, we find a cross-correlation of 0.793.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 11 days:
+
+```{r lag graphing , echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINPlotlag <- ggplot(DeerIslandN, aes(x=Date)) +
+  geom_line(aes(x=Date+11, y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Removing The 11-Day Time Lag", subtitle = "Deer Island North Viral Concentration vs. Statewide New Hospitalizations") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DINPlotlag
+```
+
+# Alpha Variant
+
+The Wild Type data are limited, so I'm going to start with Alpha: it was estimated to have become dominant during the 2-week period ending 03/10 and news articles call Delta dominant on 07/08, so I'm going to call it 03/10/2021 - 07/01/2021
+
+```{r graphing alpha , echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Alpha <- DeerIslandN %>% filter(between(Date, AlphaStart, AlphaEnd))
+
+AlphaPlot <- ggplot(Alpha, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=4*bed_07da,  color="blue2")) +
+  labs(title="Alpha Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+AlphaPlotRaw <- ggplot(Alpha, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=4*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Alpha Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+AlphaPlot
+AlphaPlotRaw
+
+```
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr alpha raw, echo=TRUE , warning=FALSE}
+
+cor.test(Alpha$`New COVID-19 hospitalizations`, Alpha$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.865 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr alpha 2 raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AlphaCCF <- ccf(Alpha$`New COVID-19 hospitalizations`, Alpha$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of around 6 gives the tightest fit. 
+
+\elandscape
+
+```{r print alpha corr raw, echo=TRUE , warning=FALSE}
+
+print(AlphaCCF)
+
+```
+At a lag of 10 days, we find a cross-correlation of 0.861.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 6 days:
+
+```{r graphing alpha lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+AlphaPlotRawLag <- ggplot(Alpha, aes(x=Date)) +
+  geom_line(aes(x=Date+6, y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=4*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+AlphaPlotRawLag
+
+```
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr alpha, echo=TRUE , warning=FALSE}
+
+cor.test(Alpha$bed_07da, Alpha$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.865 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr alpha ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(Alpha$bed_07da, Alpha$avg_07da)
+
+
+```
+
+We find that a lag of around 6 gives the tightest fit, in terms of ACF.
+
+\elandscape
+
+```{r corr alpha ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 6 days, we find a cross-correlation of 0.924.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 6 days:
+
+```{r graphing alpha lag, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+AlphaPlotLag <- ggplot(Alpha, aes(x=Date)) +
+  geom_line(aes(x=Date+6, y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=4*bed_07da,  color="blue2")) +
+  labs(title="Removing The 11-Day Time Lag", subtitle = "Deer Island North Viral Concentration vs. Statewide New Hospitalizations") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+AlphaPlotLag 
+```
+# Delta Variant
+
+Next, Delta: news articles call Delta dominant on 07/08 and Omicron was dominant on 12/26 so I'm going to call it 07/08/2021 - 12/19/2021
+
+```{r graphing delta, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Delta <- DeerIslandN %>% filter(between(Date, DeltaStart, DeltaEnd))
+
+DeltaPlot <- ggplot(Delta, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=4*bed_07da,  color="blue2")) +
+  labs(title="Delta Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DeltaPlotRaw <- ggplot(Delta, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=4*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Delta Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.25, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DeltaPlot
+DeltaPlotRaw
+
+```
+
+This is hard to see. Log scale time:
+
+```{r graphing delta log, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DeltaPlotl <- ggplot(Delta, aes(x=Date)) +
+  geom_line(aes(y=log(avg_07da), color = "red2")) + 
+  geom_line(aes(y=log(bed_07da),  color="blue2")) +
+  labs(title="Delta Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DeltaPlotRawl <- ggplot(Delta, aes(x=Date)) +
+  geom_line(aes(y=log(`Northern (copies/mL)`), color = "red2")) + 
+  geom_line(aes(y=log(1*`New COVID-19 hospitalizations`),  color="blue2")) +
+  labs(title="Delta Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DeltaPlotl
+DeltaPlotRawl
+
+```
+Nice!
+
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr delta raw, echo=TRUE , warning=FALSE}
+
+cor.test(Delta$`New COVID-19 hospitalizations`, Delta$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.618 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr delta ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DeltaCCF <- ccf(Delta$`New COVID-19 hospitalizations`, Delta$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of around -1 gives the tightest fit?
+
+\elandscape
+
+```{r corr delta ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(DeltaCCF)
+
+```
+At a lag of -1 days, we find a cross-correlation of 0.816.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 6 days:
+
+```{r graphing delta lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+DeltaPlotRawLag <- ggplot(Delta, aes(x=Date)) +
+  geom_line(aes(x=Date+6, y=log(`Northern (copies/mL)`), color = "red2")) + 
+  geom_line(aes(y=log(`New COVID-19 hospitalizations`),  color="blue2")) +
+  labs(title="Deer Island North Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+DeltaPlotRawLag
+
+```
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr delta, echo=TRUE , warning=FALSE}
+
+cor.test(Delta$bed_07da, Delta$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.647 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr delta ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(Delta$bed_07da, Delta$avg_07da)
+
+
+```
+
+We find that a lag of 0 gives the tightest fit, in terms of ACF.
+
+
+\elandscape
+
+```{r corr delta ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 6 days, we find a cross-correlation of 0.802.
+
+### Graphing the lag
+
+We found no lag in need of graphing.
+
+
+# BA.1 Variant
+
+Omicron was predominant on Christmas, 2021 and BA.2 became dominant on 03/29/2022
+
+```{r graphing omi, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron1 <- DeerIslandN %>% filter(between(Date, Omicron1Start, Omicron1End))
+
+
+Omicron1Plot <- ggplot(Omicron1, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=20*bed_07da,  color="blue2")) +
+  labs(title="Omicron BA.1 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.05, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron1PlotRaw <- ggplot(Omicron1, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=20*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.1 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.05, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron1Plot
+Omicron1PlotRaw
+
+```
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr omi raw, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron1$`New COVID-19 hospitalizations`, Omicron1$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.831 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr omi ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron1CCF <- ccf(Omicron1$`New COVID-19 hospitalizations`, Omicron1$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of around 10 gives the tightest fit. 
+
+\elandscape
+
+```{r corr omi ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(Omicron1CCF)
+
+```
+At a lag of 10 days, we find a cross-correlation of 0.821.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 10 days:
+
+```{r graphing omi lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+Omicron1PlotRawLag <- ggplot(Omicron1, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, x=Date+10, color = "red2")) + 
+  geom_line(aes(y=20*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.1 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.05, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron1PlotRawLag
+
+```
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr omi, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron1$bed_07da, Omicron1$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.841 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr omi ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(Omicron1$bed_07da, Omicron1$avg_07da)
+
+
+```
+
+We find that a lag of around  10 gives the tightest fit, in terms of ACF.
+
+\elandscape
+
+```{r corr omi ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 10 days, we find a cross-correlation of 0.856.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 11 days:
+
+```{r graphing omi lag, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron1PlotLag <- ggplot(Omicron1, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, x=Date+10, color = "red2")) + 
+  geom_line(aes(y=20*bed_07da,  color="blue2")) +
+  labs(title="Omicron BA.1 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.05, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron1PlotLag
+```
+
+# BA.2 Variant
+
+BA.2 became dominant on 03/29/2022
+
+```{r graphing ba2, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron2Start <- as.Date("2022-03-29", format="%Y-%m-%d")
+Omicron2End <- as.Date("2022-07-01", format="%Y-%m-%d")
+
+Omicron3Start <- as.Date("2022-07-06", format="%Y-%m-%d")
+Omicron3End <- as.Date("2022-10-25", format="%Y-%m-%d")
+
+BQsStart <- as.Date("2022-11-01", format="%Y-%m-%d")
+BQsEnd <- as.Date("2023-01-01", format="%Y-%m-%d")
+
+Omicron2 <- DeerIslandN %>% filter(between(Date, Omicron2Start, Omicron2End))
+
+
+Omicron2Plot <- ggplot(Omicron2, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron2PlotRaw <- ggplot(Omicron2, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron2Plot
+Omicron2PlotRaw
+
+```
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr ba2 raw, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron2$`New COVID-19 hospitalizations`, Omicron2$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.673 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr ba2 ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron2CCF <- ccf(Omicron2$`New COVID-19 hospitalizations`, Omicron2$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of -2 gives the tightest fit. 
+
+\elandscape
+
+```{r corr ba2 ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(Omicron2CCF)
+
+```
+At a lag of -2 days, we find a cross-correlation of 0.598.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 10 days:
+
+```{r graphing ba2 lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+Omicron2PlotRawLag <- ggplot(Omicron2, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, x=Date-2, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron2PlotRawLag
+
+```
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr ba2, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron2$bed_07da, Omicron2$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.684 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr ba2 ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(Omicron2$bed_07da, Omicron2$avg_07da)
+
+
+```
+
+We find that a lag of 0 gives the tightest fit, in terms of ACF.
+
+\elandscape
+
+```{r corr ba2 ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 0 days, we find a cross-correlation of 0.889.
+
+### Graphing the lag
+
+Nothing to graph.
+
+
+# BA.4 and BA.5 Variants
+
+BA.4 and BA.5 became dominant around 07/06/2022
+
+```{r graphing ba4, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron3 <- DeerIslandN %>% filter(between(Date, Omicron3Start, Omicron3End))
+
+
+Omicron3Plot <- ggplot(Omicron3, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Omicron BA.4 and BA.5 Variants: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron3PlotRaw <- ggplot(Omicron3, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron3Plot
+Omicron3PlotRaw
+
+```
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr ba4 raw, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron3$`New COVID-19 hospitalizations`, Omicron3$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.384 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr ba4 ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron3CCF <- ccf(Omicron3$`New COVID-19 hospitalizations`, Omicron3$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of 7 gives the tightest fit. 
+
+\elandscape
+
+```{r corr ba4 ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(Omicron3CCF)
+
+```
+At a lag of 7 days, we find a cross-correlation of 0.426
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 7 days:
+
+```{r graphing ba4 lag raw, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+ 
+Omicron3PlotRawLag <- ggplot(Omicron3, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, x=Date+7, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron3PlotRawLag
+
+```
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr ba4, echo=TRUE , warning=FALSE}
+
+cor.test(Omicron3$bed_07da, Omicron3$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.560 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr ba4 ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(Omicron3$bed_07da, Omicron3$avg_07da)
+
+
+```
+
+We find that a lag of 6 gives the tightest fit, in terms of ACF.
+
+\elandscape
+
+```{r corr ba4 ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 6 days, we find a cross-correlation of 0.810.
+
+### Graphing the lag
+
+To see what this looks like, we alter the original graph, moving the wastewater line forward 6 days:
+
+```{r graphing omicron3 lag, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Omicron3PlotLag <- ggplot(Omicron3, aes(x=Date)) +
+  geom_line(aes(x=Date+6, y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Removing The 6-Day Time Lag", subtitle = "Deer Island North Viral Concentration vs. Statewide New Hospitalizations") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+Omicron3PlotLag 
+```
+
+# BQ.1 and BQ.1.1 Variants
+
+The BQ variants became dominant in November 2022
+
+```{r graphing BQs, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+BQs <- DeerIslandN %>% filter(between(Date, BQsStart, BQsEnd))
+
+
+BQsPlot <- ggplot(BQs, aes(x=Date)) +
+  geom_line(aes(y=avg_07da, color = "red2")) + 
+  geom_line(aes(y=10*bed_07da,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Rolling 7-day averages") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+BQsPlotRaw <- ggplot(BQs, aes(x=Date)) +
+  geom_line(aes(y=`Northern (copies/mL)`, color = "red2")) + 
+  geom_line(aes(y=10*`New COVID-19 hospitalizations`,  color="blue2")) +
+  labs(title="Omicron BA.2 Variant: Viral Concentration vs. Statewide New Hospitalizations", subtitle = "Raw Numbers") +
+  scale_y_continuous(    name = "New Hospitalizations",
+    sec.axis = sec_axis(~.*0.1, name="Viral Concentration (copies/mL)")) + 
+    theme(axis.title.y = element_text(color = "#F8766D", size=8),
+    axis.title.y.right = element_text(color = "#00BFC4", size=8)) + theme_bw() + theme(legend.position = "none") + 
+  scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=60, hjust = 1))
+BQsPlot
+BQsPlotRaw
+
+```
+## Raw Data 
+### Spearman's $\rho$
+
+```{r corr BQs raw, echo=TRUE , warning=FALSE}
+
+cor.test(BQs$`New COVID-19 hospitalizations`, BQs$`Northern (copies/mL)`,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.757 and a significant correlation between hospitalizations and viral concentration.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr BQs ccf raw, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+BQsCCF <- ccf(BQs$`New COVID-19 hospitalizations`, BQs$`Northern (copies/mL)`)
+
+
+```
+
+We find that a lag of 0 gives the tightest fit. 
+
+\elandscape
+
+```{r corr BQs ccf 2 raw, echo=TRUE , warning=FALSE}
+
+print(BQsCCF)
+
+```
+At a lag of 0 days, we find a cross-correlation of 0.832.
+
+### Graphing the lag
+
+Nothing to graph
+
+## Rolling 7 Day Averages
+### Spearman's $\rho$
+
+```{r corr BQs, echo=TRUE , warning=FALSE}
+
+cor.test(BQs$bed_07da, BQs$avg_07da,
+         method = "spearman")
+
+```
+
+A test of correlation finds a Spearman's $\rho$ of 0.947 and a significant correlation between the two variables.
+
+\blandscape
+
+### Time Series Analysis
+
+```{r corr BQs ccf, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+DINCCF <- ccf(BQs$bed_07da, BQs$avg_07da)
+
+
+```
+
+We find that a lag of 0 gives the tightest fit, in terms of ACF.
+
+\elandscape
+
+```{r corr BQs ccf 2, echo=TRUE , warning=FALSE}
+
+print(DINCCF)
+
+```
+At a lag of 0 days, we find a cross-correlation of 0.964.
+
+### Graphing the lag
+
+Nothing to graph.
+
+# Wave-wise Summary - FIX
+```{r summary, echo=FALSE, warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
+
+Wave <- c("All Data", "Alpha", "Delta", "Omicron BA.1", "Omicron BA.2", "Omicron BA.4 and BA.5", 
+          "BQ.1 and BQ.1.1 Variants")
+RawRho <- c(0.807, 0.865, 0.618, 0.831, 0.673, 0.384, 0.757)
+RollingRho <- c(0.841, 0.865, 0.647, 0.841, 0.866,0.560, 0.947)
+RawLag <-c(10, 6, -1, 10, -2, 7, 0)
+RawLagCCF <- c(0.751, 0.861, 0.816, 0.821, 0.598, 0.426, 0.832) 
+RollingLag <- c(11, 6, 0, 10, 0, 6, 0)
+RollingCCF <- c(0.793, 0.924, 0.929, 0.856, 0.889, 0.810, 0.967)
+
+Summary <- data.frame(Wave, RawRho, RollingRho, RawLag, RawLagCCF, RollingLag, RollingCCF)
+Summary
+
+```
