@@ -41,12 +41,12 @@ library(tidyverse)
 ```{r clean data, echo=FALSE , warning=FALSE, message=FALSE, results = "asis", type = 'latex'}
 
 # Load in new data
-all1<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All1.xlsx") 
-all2<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All2.xlsx") 
-all3<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All3.xlsx") 
-all4<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All4.xlsx") 
-all5<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All5.xlsx") 
-all6<-read_excel("J:/Wastewater Surveillance/Emily/Variant Analysis/Data/Cleaned/All6.xlsx") 
+all1<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All1.xlsx") 
+all2<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All2.xlsx") 
+all3<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All3.xlsx") 
+all4<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All4.xlsx") 
+all5<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All5.xlsx") 
+all6<-read_excel("[DRIVE]/Variant Analysis/Data/Cleaned/All6.xlsx") 
 
 ```
 
